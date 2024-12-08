@@ -20,10 +20,10 @@ def inflate_long(s, always_positive=False):
     if negative:
         out -= 1 << (8 * len(s))
     return out
-    
 
-zero_byte = b'\x00'
-max_byte = b'\xff'
+
+zero_byte = b"\x00"
+max_byte = b"\xff"
 
 
 def deflate_long(n, add_sign_padding=True):
@@ -55,7 +55,6 @@ def deflate_long(n, add_sign_padding=True):
         if (n == -1) and (byte_ord(s[0]) < 0x80):
             s = max_byte + s
     return s
-
 
 
 def byte_chr(c):

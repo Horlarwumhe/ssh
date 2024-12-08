@@ -1,6 +1,7 @@
 import io
-import struct
+
 from . import util
+
 
 class Buffer(io.BytesIO):
     def read_int(self) -> int:
@@ -19,7 +20,7 @@ class Buffer(io.BytesIO):
     def read_bool(self) -> bool:
         return int.from_bytes(self.read(1)) != 0
 
-    def read_byte(self, n: int=1):
+    def read_byte(self, n: int = 1):
         return self.read(n)
 
     def read_mpint(self):
@@ -39,16 +40,15 @@ class Buffer(io.BytesIO):
     def write_bool(self, b: bool):
         self.write(int.to_bytes(b))
 
-    def write_byte(self,b: bytes):
+    def write_byte(self, b: bytes):
         return self.write(b)
-    
-    def write_mpint(self,i: int):
+
+    def write_mpint(self, i: int):
         self.write_binary(util.deflate_long(i))
         # s = round((i.bit_length()+7)/8)
         # b = int.to_bytes(i,s,signed=True)
         # assert len(b) == s, "mpint error len(b): %s != s:%s "%(len(b),s)
         # self.write_binary(b)
-    
-    def write_list(self,l:list[str]):
-        self.write_string(",".join(l))
 
+    def write_list(self, l: list[str]):
+        self.write_string(",".join(l))
