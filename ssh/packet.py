@@ -22,6 +22,8 @@ def code_to_desc(code):
 
 
 class Packet:
+    min_size: int = 16
+    block_size: int = 8
     def __init__(
         self,
         data: bytes | None = None,
@@ -38,15 +40,24 @@ class Packet:
     @classmethod
     def build(cls, payload: bytes, block_size=8) -> "Packet":
         # https://datatracker.ietf.org/doc/html/rfc4253#section-6
+        block_size = max(block_size,cls.block_size)
         padding_length = block_size - ((4 + 1 + len(payload)) % block_size)
         padding = os.urandom(padding_length)
         packet_length = 1 + len(payload) + len(padding)  # 1 is len(len(padding))
+        total_size = 4 + packet_length
+        min_size = max(block_size,cls.min_size)
+        if total_size < min_size:
+            add = min_size - total_size
+            padding += os.urandom(add)
+            packet_length += add
+            total_size += add
+            padding_length += add
         buf = Buffer()
         buf.write_int(packet_length)
         buf.write_byte(int.to_bytes(padding_length, 1))
         buf.write_byte(payload)
         buf.write_byte(padding)
-        assert (4 + 1 + len(payload) + len(padding)) % block_size == 0
+        assert total_size % block_size == 0
         return Packet(
             data=buf.getvalue(),
             packet_length=packet_length,
