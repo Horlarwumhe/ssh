@@ -152,6 +152,9 @@ class Connection:
 
     # def compute_mac(self,algo,data)
     async def send_packet(self, data: bytes):
+        s = ''
+        if self.encrypted:
+            s = "encrypted"
         cmd = code_to_desc(data[0])
         p = Packet.build(data, block_size=self.block_size)
         data = bytes(p)
@@ -159,14 +162,13 @@ class Connection:
             p.packet_length + 4,
             len(data),
         )
-        log.log(
+        logger.log(
             logging.DEBUG,
-            f"[outgoing] {cmd=} {p.packet_length=} {len(data)=} {p.padding_length=}",
+            f"[{s} outgoing] {cmd=} {p.packet_length=} {len(data)=} {p.padding_length=}",
         )
         mac = b""
         if self.encrypted:
             mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + bytes(p))
-            log.log(DEBUG, f"{mac.hex()=}")
             p = self.client_enc.encrypt(bytes(data))
         await self.sock.send(bytes(p) + mac)
         self.seq_no += 1 & 0xFFFFFFFF
@@ -176,7 +178,6 @@ class Connection:
 
     async def readline(self):
         line = self.buf.readline()
-        log.log(logging.DEBUG, "got %d" % len(line))
         if not line.endswith(b"\n"):
             pos = self.buf.tell()
             data = await self.sock.recv(self.recv_size)
@@ -200,5 +201,4 @@ class Connection:
         # return
         self.encrypted = True
         self.block_size = self.client_enc.block_size
-        log.log(DEBUG, "Agrred kex reset keys")
         # self.server_seq_no = self.seq_no = 0
