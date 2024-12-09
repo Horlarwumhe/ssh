@@ -42,6 +42,8 @@ class Packet:
         # https://datatracker.ietf.org/doc/html/rfc4253#section-6
         block_size = max(block_size,cls.block_size)
         padding_length = block_size - ((4 + 1 + len(payload)) % block_size)
+        if padding_length < 4:
+            padding_length += block_size
         padding = os.urandom(padding_length)
         packet_length = 1 + len(payload) + len(padding)  # 1 is len(len(padding))
         total_size = 4 + packet_length
