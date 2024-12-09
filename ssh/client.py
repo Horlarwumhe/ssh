@@ -67,6 +67,8 @@ class SSHClient:
                 )
                 break
             self.logger.info("got %s" % line)
+            if not line:
+                raise ConnectionResetError("server diconnnected")
         await self.sock.send(self.version.encode() + b"\r\n")
         if start_kex:
             await self.start_kex()
