@@ -37,10 +37,8 @@ class SSHClient:
     }
 
     available_server_host_key_algo: dict[str, callable] = {
-        "rsa-sha2-512": str,
-        "rsa-sha2-256": str,
-        "ssh-ed25519": str,
-        "ecdsa-sha2-nistp256": str,
+        "rsa-sha2-512": key.RSAKey,
+        "rsa-sha2-256": key.RSAKey,
     }
 
     def __init__(self) -> None:

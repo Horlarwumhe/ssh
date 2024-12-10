@@ -13,7 +13,6 @@ from .hash import sha1, sha256, sha512
 class KexResult:
     K: int
     H: bytes
-    sig: bytes
 
 
 log = logging.getLogger("ssh")
@@ -43,7 +42,7 @@ class DHKex:
         if packet.opcode != msg.SSHMessageKexDHReply.opcode:
             raise
         resp = msg.SSHMessageKexDHReply.parse(m)
-        server_host_key = resp.host_pub_key_cert
+        server_host_key = resp.host_key
         f = resp.f
         sig = resp.sig
         K = pow(f, x, self.P)
@@ -60,7 +59,15 @@ class DHKex:
             )
         )
         H = type(self).hash_algo(s)
-        return KexResult(K=K, H=H, sig=sig)
+        server_key = self.client.available_server_host_key_algo[
+            self.client.server_host_key_algo
+        ].from_buffer(Buffer(server_host_key))
+        buf = Buffer(sig)
+        hash_name = buf.read_string()
+        assert server_key.verify(
+            buf.read_binary(), H, hash_name
+        ), "Signature verification failed"
+        return KexResult(K=K, H=H)
 
 
 class DHGroup1SHA1(DHKex):

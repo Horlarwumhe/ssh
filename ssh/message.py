@@ -264,13 +264,13 @@ class SSHMsgKexDHInit(SSHMessage):
 class SSHMessageKexDHReply(SSHMessage):
     desc = " SSH_MSG_KEX_DH_REPLY"
     opcode = 31
-    host_pub_key_cert: bytes
+    host_key: bytes
     f: int
     sig: bytes
 
     def __bytes__(self):
         m = Buffer()
-        m.write_binary(self.host_pub_key_cert)
+        m.write_binary(self.host_key)
         m.write_mpint(self.f)
         m.write_binary(self.sig)
         return m.getvalue()
@@ -278,31 +278,29 @@ class SSHMessageKexDHReply(SSHMessage):
     @classmethod
     def parse(cls, m: Buffer):
         cls.validate(m)
-        return cls(
-            host_pub_key_cert=m.read_binary(), f=m.read_mpint(), sig=m.read_binary()
-        )
+        return cls(host_key=m.read_binary(), f=m.read_mpint(), sig=m.read_binary())
 
 
-class SSHKexECDHInit(SSHMessage):
+@dataclass
+class SSHMsgKexECDHInit(SSHMessage):
     desc = "SSH_KEX_ECDH_INIT"
-    opcode: int = 30  # TODO
-    client_pub_key: bytes
+    opcode = 30  # TODO
+    pub_key: bytes
 
     @classmethod
     def parse(cls, buf: Buffer):
         cls.validate(buf)
-        return cls(client_pub_key=buf.read_binary())
+        return cls(pub_key=buf.read_binary())
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode,1))
-        buf.write_binary(self.client_pub_key)
+        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_binary(self.pub_key)
         return buf.getvalue()
 
 
-
 @dataclass
-class SSHKexECDHReply(SSHMessage):
+class SSHMsgKexECDHReply(SSHMessage):
     desc = "SSH_KEX_ECDH_REPLY"
     opcode = 31  # CHANGE
     host_key: bytes
