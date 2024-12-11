@@ -701,12 +701,13 @@ class DHHashSig:
         return m.getvalue()
 
 
+@dataclass
 class ECDHHashSig:
     client_version: str
     server_version: str
     client_kex_init: str
     server_kex_init: str
-    host_key: str
+    server_host_key: str
     client_pub_key: str
     server_pub_key: str
     K: int
@@ -717,11 +718,27 @@ class ECDHHashSig:
         m.write_string(self.server_version)
         m.write_string(self.client_kex_init)
         m.write_string(self.server_kex_init)
-        m.write_string(self.host_key)
+        m.write_string(self.server_host_key)
         m.write_mpint(self.client_pub_key)
         m.write_mpint(self.server_pub_key)
         m.write_mpint(self.K)
         return m.getvalue()
+
+
+@dataclass
+class SSHSignature:
+    algo: str
+    sig: bytes
+
+    @classmethod
+    def parse(cls, buf: Buffer):
+        return cls(algo=buf.read_string(), sig=buf.read_binary())
+
+    def __bytes__(self):
+        buf = Buffer()
+        buf.write_string(self.algo)
+        buf.write_binary(self.sig)
+        return buf.getvalue()
 
 
 HANDLERS = {}

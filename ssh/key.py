@@ -1,8 +1,8 @@
-from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
 from ssh.stream import Buffer
 
 
@@ -17,7 +17,7 @@ class RSAKey:
     }
 
     def __init__(self, pk=None, pub=None):
-        self.pk = pk
+        self.pk: rsa.RSAPrivateKey = pk
         self.pub: rsa.RSAPublicKey = pub
 
     @classmethod
@@ -31,6 +31,11 @@ class RSAKey:
             return False
         return True
 
+    def sign(self, message: bytes, algo: str):
+        return self.pk.sign(
+            message, padding=padding.PKCS1v15(), algorithm=self.HASHES[algo]()
+        )
+
     @classmethod
     def generate(cls):
         key = rsa.generate_private_key(
@@ -42,3 +47,20 @@ class RSAKey:
     def from_buffer(cls, b: Buffer):
         assert "ssh-rsa" in b.read_string()
         return cls.pub_from_number(e=b.read_mpint(), n=b.read_mpint())
+
+    @classmethod
+    def from_file(cls, path, password=None):
+        data = open(path, "rb").read()  # file closed.
+        # shortcut
+        if b"RSA" in data:
+            pk = serialization.load_pem_private_key(data, password)
+        elif b"OPENSSH" in data:
+            pk = serialization.load_ssh_private_key(data, password)
+        return cls(pk=pk, pub=pk.public_key())
+
+    def __bytes__(self):
+        b = Buffer()
+        b.write_string("ssh-rsa")
+        b.write_mpint(self.pub.public_numbers().e)
+        b.write_mpint(self.pub.public_numbers().n)
+        return b.getvalue()

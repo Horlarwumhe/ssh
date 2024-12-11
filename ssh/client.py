@@ -1,3 +1,4 @@
+from itertools import chain
 import logging
 import os
 
@@ -212,10 +213,65 @@ class SSHClient:
             )
 
     async def end_kex_init(self):
-        req = msg.SSHMsgNewKeys()
+        req = MSG.SSHMsgNewKeys()
         await self.sock.send_packet(bytes(req))
         packet = await self.sock.read_packet()
         self.logger.log(DEBUG, "New keys: %s", packet.opcode)
+
+    async def send_message(self, msg: MSG.SSHMessage):
+        await self.sock.send_packet(bytes(msg))
+
+    async def auth_password(self, username, password=""):
+        svc = MSG.SSHMsgServiceRequest(service_name="ssh-userauth")
+        await self.send_message(svc)
+        auth = MSG.SSHMsgUserauthRequest(
+            username=username,
+            service_name="ssh-connection",
+            method_name="password",
+            password=password,
+            flag=False,
+        )
+        await self.send_message(auth)
+        # self.wait_for_message()
+
+    async def auth_public_key(self, username, key_path=""):
+        svc = MSG.SSHMsgServiceRequest(service_name="ssh-userauth")
+        await self.send_message(svc)
+        pk = key.RSAKey.from_file(key_path)
+        signature = self.compute_auth_signature(username, pk)
+        signature = bytes(
+            MSG.SSHSignature(algo=self.server_host_key_algo, sig=signature)
+        )
+        auth = MSG.SSHMsgUserauthRequest(
+            username=username,
+            service_name="ssh-connection",
+            method_name="publickey",
+            flag=True,
+            pub_key_algo=self.server_host_key_algo,
+            pub_key=bytes(pk),
+            signatrue=signature,
+        )
+        await self.send_message(auth)
+
+    def compute_auth_signature(self, username, pk):
+        b = Buffer()
+        b.write_binary(self.session_id)
+        b.write_byte(int.to_bytes(MSG.SSHMsgUserauthRequest.opcode, 1))
+        for x in (
+            username,
+            "ssh-connection",
+            "publickey",
+            True,
+            self.server_host_key_algo,
+            bytes(pk),
+        ):
+            if isinstance(x, bool):
+                b.write_bool(x)
+            elif isinstance(x, bytes):
+                b.write_binary(x)
+            else:
+                b.write_string(x)
+        return pk.sign(b.getvalue(), self.server_host_key_algo)
 
     def _log(self, level, message):
         self.logger.log(level, message)
