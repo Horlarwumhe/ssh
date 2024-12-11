@@ -1,18 +1,20 @@
-from itertools import chain
 import logging
 import os
+from itertools import chain
 
-import trio
+import curio
 
 from ssh import util
+from ssh.channel import Channel, ChannelError
 from ssh.stream import Buffer
 
 from . import encryption as enc
-from . import kex, mac, key
-from . import message as MSG
+from . import kex, key, mac
+from .message import *
 from .packet import Connection
 
 DEBUG = logging.DEBUG
+INFO = logging.INFO
 
 
 class SSHClient:
@@ -56,6 +58,24 @@ class SSHClient:
         self.server_kex_init = None
         self.kex_result = None
         self.session_id = None
+        self.tasks = []
+        self.events: dict[int, curio.Event] = {}
+        self.close_event = curio.Event()
+        self.channel_events: dict[int, curio.Event] = {}
+        self.channels = {}
+
+        self.message_handlers = {
+            SSHMsgDisconnect.opcode: self.handle_message_disconnect,
+            SSHMsgChannelData.opcode: self.handle_channel_data,
+            SSHMsgChannelClose.opcode: self.handle_channel_message,
+            SSHMsgChannelEOF.opcode: self.handle_channel_message,
+            SSHMsgChannelSuccess.opcode: self.handle_channel_message,
+            SSHMsgChannelFailure.opcode: self.handle_channel_message,
+            SSHMsgChannelRequest.opcode: self.handle_channel_message,
+            SSHMsgChannelExtendData.opcode: self.handle_channel_data,
+            SSHMsgChannelOpenConfirmation.opcode: self.handle_channel_open,
+            SSHMsgChannelOpenFailure.opcode: self.handle_channel_open,
+        }
 
     async def connect(self, host, port, start_kex=False):
         await self.sock.connect(host, port)
@@ -73,17 +93,33 @@ class SSHClient:
         await self.sock.send(self.version.encode() + b"\r\n")
         if start_kex:
             await self.start_kex()
+            self.tasks.append(await curio.spawn(self.get_packets))
 
     async def get_packets(self):
-        pass
+        while True:
+            packet = await self.sock.read_packet()
+            msg = HANDLERS[packet.opcode].parse(Buffer(packet.payload))
+            # await curio.sleep(0.1)
+            if msg.opcode in self.events:
+                self.logger.debug("Found message in events %s", msg)
+                ev = self.events.pop(msg.opcode)
+                await ev.set()
+            fn = self.message_handlers.get(msg.opcode)
+            if fn:
+                self.logger.log(DEBUG, "calling handler %s", fn)
+                self.tasks.append(await curio.spawn(fn, msg))
+            else:
+                self.logger.log(logging.INFO, "handler not found %s", msg)
 
-    async def run(self):
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(self.loop, "a")
-            nursery.start_soon(self.loop, "b")
+    # async def read_incoming
+
+    # async def run(self):
+    #     async with trio.open_nursery() as nursery:
+    #         nursery.start_soon(self.loop, "a")
+    #         nursery.start_soon(self.loop, "b")
 
     async def start_kex(self):
-        req = MSG.SSHMsgKexInit(
+        req = SSHMsgKexInit(
             cookie=os.urandom(16),
             kex_algo=list(self.available_kex_algo.keys()),
             server_host_key_algo=list(self.available_server_host_key_algo),
@@ -119,7 +155,7 @@ class SSHClient:
 
         await self.sock.send_packet(bytes(req))
         packet = await self.sock.read_packet()
-        resp = MSG.HANDLERS[packet.opcode].parse(Buffer(packet.payload))
+        resp = HANDLERS[packet.opcode].parse(Buffer(packet.payload))
         self.server_kex_init = resp
         self.kex_init = req
         self.set_algos(resp)
@@ -131,7 +167,7 @@ class SSHClient:
         self.sock.start_encryption()
         # await self.sock.send_packet(bytes(self.kex_init))
 
-    def set_algos(self, server_kex: MSG.SSHMsgKexInit):
+    def set_algos(self, server_kex: SSHMsgKexInit):
         self.kex_algo = list(
             filter(
                 lambda x: x in server_kex.kex_algo,
@@ -213,18 +249,23 @@ class SSHClient:
             )
 
     async def end_kex_init(self):
-        req = MSG.SSHMsgNewKeys()
+        req = SSHMsgNewKeys()
         await self.sock.send_packet(bytes(req))
         packet = await self.sock.read_packet()
         self.logger.log(DEBUG, "New keys: %s", packet.opcode)
 
-    async def send_message(self, msg: MSG.SSHMessage):
+    async def send_message(self, msg: SSHMessage):
         await self.sock.send_packet(bytes(msg))
 
     async def auth_password(self, username, password=""):
-        svc = MSG.SSHMsgServiceRequest(service_name="ssh-userauth")
+        svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
-        auth = MSG.SSHMsgUserauthRequest(
+        self.logger.info("waiting for accept")
+        if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
+            self.logger.info("service request timeout auth failed")
+            return
+        self.logger.info("accepted")
+        auth = SSHMsgUserauthRequest(
             username=username,
             service_name="ssh-connection",
             method_name="password",
@@ -235,14 +276,16 @@ class SSHClient:
         # self.wait_for_message()
 
     async def auth_public_key(self, username, key_path=""):
-        svc = MSG.SSHMsgServiceRequest(service_name="ssh-userauth")
+        svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
+        if not await self.wait_for_message(SSHMsgServiceAccept, 10, silent=True):
+            self.logger.info("service request timeout auth failed")
+            return
         pk = key.RSAKey.from_file(key_path)
         signature = self.compute_auth_signature(username, pk)
-        signature = bytes(
-            MSG.SSHSignature(algo=self.server_host_key_algo, sig=signature)
-        )
-        auth = MSG.SSHMsgUserauthRequest(
+        signature = bytes(SSHSignature(algo=self.server_host_key_algo, sig=signature))
+
+        auth = SSHMsgUserauthRequest(
             username=username,
             service_name="ssh-connection",
             method_name="publickey",
@@ -256,7 +299,7 @@ class SSHClient:
     def compute_auth_signature(self, username, pk):
         b = Buffer()
         b.write_binary(self.session_id)
-        b.write_byte(int.to_bytes(MSG.SSHMsgUserauthRequest.opcode, 1))
+        b.write_byte(int.to_bytes(SSHMsgUserauthRequest.opcode, 1))
         for x in (
             username,
             "ssh-connection",
