@@ -3,27 +3,29 @@ import logging
 import os
 import struct
 
-from trio import socket
+from curio import socket
+import curio
 
 from ssh.stream import Buffer
 
 from . import message as msg
 
 DEBUG = logging.DEBUG
-log = logging.getLogger("ssh")
+logger = logging.getLogger("ssh")
 
 
 def code_to_desc(code):
     try:
         return msg.HANDLERS.get(code).desc
     except Exception as e:
-        log.log(DEBUG, f"{code=} not found {e=}")
+        logger.log(DEBUG, f"{code=} not found {e=}")
         return str(code)
 
 
 class Packet:
     min_size: int = 16
     block_size: int = 8
+
     def __init__(
         self,
         data: bytes | None = None,
@@ -40,14 +42,14 @@ class Packet:
     @classmethod
     def build(cls, payload: bytes, block_size=8) -> "Packet":
         # https://datatracker.ietf.org/doc/html/rfc4253#section-6
-        block_size = max(block_size,cls.block_size)
+        block_size = max(block_size, cls.block_size)
         padding_length = block_size - ((4 + 1 + len(payload)) % block_size)
         if padding_length < 4:
             padding_length += block_size
         padding = os.urandom(padding_length)
         packet_length = 1 + len(payload) + len(padding)  # 1 is len(len(padding))
         total_size = 4 + packet_length
-        min_size = max(block_size,cls.min_size)
+        min_size = max(block_size, cls.min_size)
         if total_size < min_size:
             add = min_size - total_size
             padding += os.urandom(add)
@@ -87,6 +89,8 @@ class Connection:
         self.block_size = 8
         self.client_mac = self.server_mac = None
         self.server_enc = self.client_enc = None
+        self.lock = curio.Lock()
+        self.wlock = curio.Lock()
 
     async def connect(self, host, port):
         if self.sock is None:
@@ -106,21 +110,22 @@ class Connection:
         return data
 
     async def read_packet(self):
-        if self.encrypted:
-            return await self.read_encrypted_packet()
-        size = int.from_bytes(await self.read(4))
-        padding_length = int.from_bytes(await self.read(1))
-        payload = await self.read(size - padding_length - 1)
-        padding = await self.read(padding_length)
-        assert (
-            4 + 1 + len(payload) + len(padding)
-        ) % self.block_size == 0, " block_size != 0"
-        p = Packet(payload=payload)
-        log.log(
-            logging.DEBUG,
-            f"[incoming packet_length={size} opcode={code_to_desc(p.opcode)}]",
-        )
-        self.server_seq_no += 1 & 0xFFFFFFFF
+        async with self.lock:
+            if self.encrypted:
+                return await self.read_encrypted_packet()
+            size = int.from_bytes(await self.read(4))
+            padding_length = int.from_bytes(await self.read(1))
+            payload = await self.read(size - padding_length - 1)
+            padding = await self.read(padding_length)
+            assert (
+                4 + 1 + len(payload) + len(padding)
+            ) % self.block_size == 0, " block_size != 0"
+            p = Packet(payload=payload)
+            logger.log(
+                logging.DEBUG,
+                f"[incoming packet_length={size} opcode={code_to_desc(p.opcode)}]",
+            )
+            self.server_seq_no += 1 & 0xFFFFFFFF
         return p
 
     async def read_encrypted_packet(self):
@@ -143,6 +148,10 @@ class Connection:
             "error computed mac not macth server mac mac(%s) != my_mac(%s) "
             % (mac.hex(), my_mac.hex())
         )
+        logger.log(
+            logging.DEBUG,
+            f"[incoming encrypted packet_length={size} opcode={code_to_desc(p.opcode)}]",
+        )
         # self.server_enc.finalize()
         self.server_seq_no += 1 & 0xFFFFFFFF
         return p
@@ -152,26 +161,27 @@ class Connection:
 
     # def compute_mac(self,algo,data)
     async def send_packet(self, data: bytes):
-        s = ''
-        if self.encrypted:
-            s = "encrypted"
-        cmd = code_to_desc(data[0])
-        p = Packet.build(data, block_size=self.block_size)
-        data = bytes(p)
-        assert p.packet_length + 4 == len(data), "%s != %s" % (
-            p.packet_length + 4,
-            len(data),
-        )
-        logger.log(
-            logging.DEBUG,
-            f"[{s} outgoing] {cmd=} {p.packet_length=} {len(data)=} {p.padding_length=}",
-        )
-        mac = b""
-        if self.encrypted:
-            mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + bytes(p))
-            p = self.client_enc.encrypt(bytes(data))
-        await self.sock.send(bytes(p) + mac)
-        self.seq_no += 1 & 0xFFFFFFFF
+        async with self.wlock:
+            s = ""
+            if self.encrypted:
+                s = "encrypted"
+            cmd = code_to_desc(data[0])
+            p = Packet.build(data, block_size=self.block_size)
+            data = bytes(p)
+            assert p.packet_length + 4 == len(data), "%s != %s" % (
+                p.packet_length + 4,
+                len(data),
+            )
+            logger.log(
+                logging.DEBUG,
+                f"[{s} outgoing] {cmd=} {p.packet_length=} {len(data)=} {p.padding_length=}",
+            )
+            mac = b""
+            if self.encrypted:
+                mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + bytes(p))
+                p = self.client_enc.encrypt(bytes(data))
+            await self.sock.send(bytes(p) + mac)
+            self.seq_no += 1 & 0xFFFFFFFF
 
     async def send(self, data):
         await self.sock.send(data)
