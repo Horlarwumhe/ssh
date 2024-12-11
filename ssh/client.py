@@ -275,3 +275,128 @@ class SSHClient:
 
     def _log(self, level, message):
         self.logger.log(level, message)
+
+    async def wait_for_message(self, msg: SSHMessage, timeout=120, silent=False):
+        ev = curio.Event()
+        self.events[msg.opcode] = ev
+        self.logger.info("Waiting for message %s", msg)
+        try:
+            async with curio.timeout_after(timeout):
+                await ev.wait()
+        except curio.TaskTimeout:
+            self.logger.info("Task timeout after %s" % timeout)
+            if silent:
+                return False
+            raise
+        self.logger.info("received signal done waiting %s", msg)
+        return True
+
+    async def open_session(self) -> Channel:
+        chid = Channel.next_id()
+        m = SSHMsgChannelOpen(
+            type="session",
+            sender_channel=chid,
+            max_packet=32768 // 2,
+            window_size=2 << 31 - 1,
+        )
+        return await self.do_open_channel(m)
+
+    async def do_open_channel(self, msg):
+        await self.send_message(msg)
+        ev = curio.Event()
+        self.channel_events[msg.sender_channel] = ev
+        await ev.wait()
+        ch = self.channels[msg.sender_channel]
+        if isinstance(ch, ChannelError):
+            self.channels.pop(msg.sender_channel)
+            raise TypeError(ch.err)
+        return ch
+
+    async def run_command(self, cmd):
+        ch = await self.open_session()
+        ch.run_command(cmd)
+        return ch
+
+    async def open_port_forward(self, dest_addr, dest_port, src_addr, src_port):
+        m = SSHMsgChannelOpen(
+            type="direct-tcpip",
+            sender_channel=Channel.next_id(),
+            max_packet=32768 // 2,
+            window_size=2 << 31 - 1,
+            address=dest_addr,
+            port=dest_port,
+            src_address=src_addr,
+            src_port=src_port,
+        )
+        return await self.do_open_channel(m)
+
+    async def close(self):
+        for task in self.tasks:
+            await task.cancel()
+        for task in self.tasks:
+            try:
+                await task.join()
+            except Exception:
+                pass
+        # self.sock.close()
+
+    ### handlers
+    async def handle_message_disconnect(self, m: SSHMsgDisconnect):
+        self.logger.log(logging.INFO, "Received disconnect message (%s)", m.description)
+        await self.close()
+        # raise RuntimeError("server closed clonnection: %s"%m.description)
+
+    async def handle_channel_message(self, m: SSHMsgChannelEOF):
+        chan_id = m.recipient_channel
+        channel = self.channels.get(chan_id)
+        if m.opcode == SSHMsgChannelClose.opcode:
+            self.logger.log(INFO, "Channel closed (%s)", m.recipient_channel)
+            channel.close()
+            self.channels.pop(chan_id)
+        if m.opcode == SSHMsgChannelSuccess.opcode:
+            # channel requests succes
+            self.logger.log(INFO, "Channel request success (%s)", m.recipient_channel)
+        if m.opcode == SSHMsgChannelFailure.opcode:
+            # channel request failure
+            self.logger.log(INFO, "Channel request failure (%s)", m.recipient_channel)
+        if m.opcode == SSHMsgChannelEOF.opcode:
+            self.logger.log(INFO, "Channel eof (%s)", m.recipient_channel)
+            await channel.set_eof()
+        if m.opcode == SSHMsgChannelRequest.opcode:
+            self.logger.info("exit code %s", chan_id)
+            if m.type != "exit-status":
+                self.logger.info("Unknow chnannel request type %s", m.type)
+                return
+            channel.set_exit_code(m.exit_status)
+
+    async def handle_channel_data(self, m: SSHMsgChannelData):
+        data = m.data
+        chan_id = m.recipient_channel
+        channel = self.channels.get(chan_id)
+        if isinstance(m, SSHMsgChannelExtendData):
+            self.logger.log(INFO, "Channel  data stderr (%s)", m.recipient_channel)
+            print(data.decode())
+            await channel.set_ext_data(data)
+        else:
+            self.logger.log(INFO, "Channel  data stdout (%s)", m.recipient_channel)
+            await channel.set_data(data)
+
+    async def handle_service_accept(self, svc: SSHMsgServiceAccept):
+        self.auth.set_event()
+
+    async def handle_channel_open(self, msg: SSHMsgChannelOpenConfirmation):
+        chid = msg.recipient_channel
+        ev = self.channel_events.pop(chid)
+        if isinstance(msg, SSHMsgChannelOpenFailure):
+            self.logger.info("channel open failed %s", msg.description)
+            description = msg.error_map.get(msg.reason_code, msg.description)
+            self.channels[chid] = ChannelError("channel open failed %s" % description)
+        else:
+            channel = Channel(self, chid, msg.sender_channel)
+            self.channels[chid] = channel
+            self.logger.info("Channel open success %s", chid)
+        await ev.set()
+
+    # def __await__(self):
+    # rself.close_event.wait()
+    # self.logger.info("existing")
