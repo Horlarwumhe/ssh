@@ -140,6 +140,7 @@ class SSHMsgIgnore(SSHMessage):
     def _parse(cls, data):
         return cls()
 
+
 @dataclass
 class SSHMsgUnimplemented(SSHMessage):
     # SSH_MSG_UNIMPLEMENTED
@@ -208,13 +209,21 @@ class SSHMsgKexInit(SSHMessage):
         return kls
 
 
+@dataclass
 class SSHMsgDebug(SSHMessage):
     # SSH_MSG_DEBUG
+    desc = "SSH_MSG_DEBUG"
     opcode = 4
+    display: bool
+    message: str
+    lang: str
 
     @classmethod
-    def _parse(cls, data):
-        return cls()
+    def parse(cls, buf: Buffer):
+        cls.validate(buf)
+        return cls(
+            display=buf.read_bool(), message=buf.read_string(), lang=buf.read_string()
+        )
 
 
 @dataclass
@@ -339,6 +348,7 @@ class SSHMsgNewKeys(SSHMessage):
         return cls()
         # return super().parse(buf)
 
+
 @dataclass
 class SSHMsgChannelOpen(SSHMessage):
     desc = "SSH_MSG_CHANNEL_OPEN"
@@ -348,17 +358,17 @@ class SSHMsgChannelOpen(SSHMessage):
     window_size: int
     max_packet: int
     #  X-11 channel https://datatracker.ietf.org/doc/html/rfc4254#section-6.3.2
-    address: str = ''
+    address: str = ""
     port: int = 0
     # forwarded-tcpip/direct-tcpip https://datatracker.ietf.org/doc/html/rfc4254#section-7.2
-    address: str = ''
+    address: str = ""
     port: int = 0
-    src_address: str = ''
+    src_address: str = ""
     src_port: int = 0
 
     def __bytes__(self):
-        buf  = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode,1))
+        buf = Buffer()
+        buf.write_byte(int.to_bytes(self.opcode, 1))
         buf.write_string(self.type)
         buf.write_int(self.sender_channel)
         buf.write_int(self.window_size)
@@ -375,7 +385,7 @@ class SSHMsgChannelOpen(SSHMessage):
         return buf.getvalue()
 
     @classmethod
-    def parse(cls, buf:Buffer):
+    def parse(cls, buf: Buffer):
         cls.validate(buf)
         type_ = buf.read_string()
         sender_channel = buf.read_int()
@@ -390,7 +400,8 @@ class SSHMsgChannelOpen(SSHMessage):
                 window_size=window_size,
                 max_packet=max_packet,
                 address=address,
-                port=port)
+                port=port,
+            )
         if type_ in ("forwarded-tcpip", "direct-tcpip"):
             address = buf.read_string()
             port = buf.read_int()
@@ -404,16 +415,15 @@ class SSHMsgChannelOpen(SSHMessage):
                 address=address,
                 port=port,
                 src_address=src_address,
-                src_port=src_port
+                src_port=src_port,
             )
         return cls(
-                type=type_,
-                sender_channel=sender_channel,
-                window_size=window_size,
-                max_packet=max_packet
-            )
+            type=type_,
+            sender_channel=sender_channel,
+            window_size=window_size,
+            max_packet=max_packet,
+        )
 
-    
 
 @dataclass
 class SSHMsgChannelOpenConfirmation(SSHMessage):
@@ -425,45 +435,53 @@ class SSHMsgChannelOpenConfirmation(SSHMessage):
     max_packet: int
 
     @classmethod
-    def parse(cls, buf:Buffer):
+    def parse(cls, buf: Buffer):
         cls.validate(buf)
         return cls(
-            recipient_channel = buf.read_int(),
-            sender_channel = buf.read_int(),
-            window_size = buf.read_int(),
-             max_packet = buf.read_int()
+            recipient_channel=buf.read_int(),
+            sender_channel=buf.read_int(),
+            window_size=buf.read_int(),
+            max_packet=buf.read_int(),
         )
 
-    def __bytes__(self, buf):
+    def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode,1))
+        buf.write_byte(int.to_bytes(self.opcode, 1))
         buf.write_int(self.recipient_channel)
         buf.write_int(self.sender_channel)
         buf.write_int(self.window_size)
         buf.write_int(self.max_packet)
         return buf.getvalue()
 
+
 @dataclass
 class SSHMsgChannelOpenFailure(SSHMessage):
     # SSH_MSG_CHANNEL_OPEN_FAILURE
     opcode = 92
+    error_map = {
+        1: "SSH_OPEN_ADMINISTRATIVELY_PROHIBITED",
+        2: "SSH_OPEN_CONNECT_FAILED",
+        3: "SSH_OPEN_UNKNOWN_CHANNEL_TYPE",
+        4: "SSH_OPEN_RESOURCE_SHORTAGE",
+    }
     recipient_channel: int
     reason_code: int
     description: str
     lang: str
 
     @classmethod
-    def parse(cls, buf:Buffer):
+    def parse(cls, buf: Buffer):
         cls.validate(buf)
         return cls(
-            recipient_channel = buf.read_int(),
-            reason_code = buf.read_int(),
-            description = buf.read_string(),
-            lang = buf.read_string()
+            recipient_channel=buf.read_int(),
+            reason_code=buf.read_int(),
+            description=buf.read_string(),
+            lang=buf.read_string(),
         )
+
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode,1))
+        buf.write_byte(int.to_bytes(self.opcode, 1))
         buf.write_int(self.recipient_channel)
         buf.write_int(self.reason_code)
         buf.write_string(self.description)
@@ -481,18 +499,61 @@ class SSHMsgChannelData(SSHMessage):
     @classmethod
     def parse(cls, buf):
         cls.validate(buf)
+        return cls(recipient_channel=buf.read_int(), data=buf.read_binary())
+
+    def __bytes__(self):
+        buf = Buffer()
+        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_int(self.recipient_channel)
+        buf.write_binary(self.data)
+        return buf.getvalue()
+
+
+@dataclass
+class SSHMsgChannelExtendData(SSHMessage):
+    desc = "SSH_MSG_CHANNEL_EXTENDED_DATA"
+    opcode = 95
+    recipient_channel: int
+    code: int
+    data: bytes
+
+    @classmethod
+    def parse(cls, buf: Buffer):
+        cls.validate(buf)
         return cls(
             recipient_channel=buf.read_int(),
-            data=buf.read_binary()
+            code=buf.read_int(),
+            data=buf.read_binary(),
         )
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode,1))
+        buf.write_byte(int.to_bytes(self.opcode, 1))
         buf.write_int(self.recipient_channel)
+        buf.write_int(self.code)
         buf.write_binary(self.data)
         return buf.getvalue()
-    
+
+
+@dataclass
+class SSHMsgWindowAdjust(SSHMessage):
+    opcode = 93
+    desc = "SSH_MSG_CHANNEL_WINDOW_ADJUST"
+    recipient_channel: int
+    size: int
+
+    @classmethod
+    def parse(cls, buf: Buffer):
+        cls.validate(buf)
+        return cls(recipient_channel=buf.read_int(), size=buf.read_int())
+
+    def __bytes__(self):
+        buf = Buffer()
+        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_int(self.recipient_channel)
+        buf.write_int(self.size)
+        return buf.getvalue()
+
 
 @dataclass
 class SSHMsgChannelEOF(SSHMessage):
@@ -507,19 +568,22 @@ class SSHMsgChannelEOF(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode,1))
+        buf.write_byte(int.to_bytes(self.opcode, 1))
         buf.write_int(self.recipient_channel)
         return buf.getvalue()
+
 
 @dataclass
 class SSHMsgChannelClose(SSHMsgChannelEOF):
     desc = "SSH_MSG_CHANNEL_CLOSE"
     opcode = 97
 
+
 @dataclass
 class SSHMsgChannelSuccess(SSHMsgChannelEOF):
     desc = "SSH_MSG_CHANNEL_SUCCESS"
     opcode = 99
+
 
 @dataclass
 class SSHMsgChannelFailure(SSHMsgChannelEOF):
@@ -535,37 +599,37 @@ class SSHMsgChannelRequest(SSHMessage):
     type: str
     want_reply: bool
     ##### pty-req request https://datatracker.ietf.org/doc/html/rfc4254#section-6.2
-    term_env_var: str = ''
+    term_env_var: str = ""
     width_char: int = 0
     heigth_char: int = 0
     width_pixel: int = 0
     heigth_pixel: int = 0
-    mode: str = ''
+    mode: str = ""
     #### X-11 request https://datatracker.ietf.org/doc/html/rfc4254#section-6.4
     single_conn: bool = True
-    auth_protocoal: str = ''
-    auth_cookie: bytes = b''
+    auth_protocoal: str = ""
+    auth_cookie: bytes = b""
     screen_number: int = 0
     # env request  https://datatracker.ietf.org/doc/html/rfc4254#section-6.4
-    name: str = ''
-    value: str = ''
+    name: str = ""
+    value: str = ""
     # shell request
-        #no data
+    # no data
     # subsystem request
-    subsytem_name: str = ''
+    subsytem_name: str = ""
     # exec request
-    command: str = ''
+    command: str = ""
     # signal request
-    signal_name: str = ''
+    signal_name: str = ""
     # exi-status request
     exit_status: int = 0
 
     @classmethod
-    def parse(cls, buf:Buffer):
+    def parse(cls, buf: Buffer):
         cls.validate(buf)
         recipient_channel = buf.read_int()
         type_ = buf.read_string()
-        want_reply = buf.read_bool() != 0  # Convert int to boolean
+        want_reply = buf.read_bool()
         if type_ == "pty-req":
             return cls(
                 recipient_channel=recipient_channel,
@@ -583,7 +647,7 @@ class SSHMsgChannelRequest(SSHMessage):
                 recipient_channel=recipient_channel,
                 type=type_,
                 want_reply=want_reply,
-                single_conn=buf.read_int() != 0,
+                single_conn=buf.read_bool(),
                 auth_protocoal=buf.read_string(),
                 auth_cookie=buf.read_binary(),
                 screen_number=buf.read_int(),
@@ -634,10 +698,10 @@ class SSHMsgChannelRequest(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode,1))
+        buf.write_byte(int.to_bytes(self.opcode, 1))
         buf.write_int(self.recipient_channel)
         buf.write_string(self.type)
-        buf.write_int(1 if self.want_reply else 0)
+        buf.write_bool(self.want_reply)
 
         if self.type == "pty-req":
             buf.write_string(self.term_env_var)
@@ -647,7 +711,7 @@ class SSHMsgChannelRequest(SSHMessage):
             buf.write_int(self.heigth_pixel)
             buf.write_string(self.mode)
         elif self.type == "x11-req":
-            buf.write_int(1 if self.single_conn else 0)
+            buf.write_bool(self.single_conn)
             buf.write_string(self.auth_protocoal)
             buf.write_binary(self.auth_cookie)
             buf.write_int(self.screen_number)
@@ -668,13 +732,17 @@ class SSHMsgChannelRequest(SSHMessage):
 
 @dataclass
 class SSHMsgGlobalRequest(SSHMessage):
+    desc = "SSH_MSG_GLOBAL_REQUEST"
     opcode = 80
-    type: str 
+    type: str
     want_reply: bool
 
     @classmethod
     def parse(cls, buf: Buffer):
-        return buf
+        cls.validate(buf)
+        # print(buf.getvalue())
+        return cls(type=buf.read_string(), want_reply=buf.read_bool())
+
 
 @dataclass
 class DHHashSig:
