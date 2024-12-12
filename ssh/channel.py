@@ -82,6 +82,7 @@ class Channel:
     async def set_data(self, data):
         async with self.lock:
             pos = self.buf.tell()
+            self.buf.seek(0,os.SEEK_END)
             self.buf.write(data)
             self.buf.seek(pos)
             await self.data_event.set()
@@ -89,11 +90,9 @@ class Channel:
     async def set_ext_data(self, data):
         async with self.lock2:
             pos = self.ext_buf.tell()
-            print('setting ext ',data,pos,len(data))
+            self.ext_buf.seek(0,os.SEEK_END)
             self.ext_buf.write(data)
-            print('now pos',self.ext_buf.tell())
             self.ext_buf.seek(pos)
-            print('finaally pos',self.ext_buf.tell())
 
     async def stderr(self, n):
         return self.ext_buf.read(n)

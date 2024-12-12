@@ -104,6 +104,7 @@ class Connection:
             b = await self.sock.recv(size * 4)  # read upto 4x requested size
             if not b:
                 raise ConnectionAbortedError("server closed")
+            self.buf.seek(0,os.SEEK_END)
             self.buf.write(b)
             self.buf.seek(pos)
             data += self.buf.read(size - len(data))
@@ -191,6 +192,7 @@ class Connection:
         if not line.endswith(b"\n"):
             pos = self.buf.tell()
             data = await self.sock.recv(self.recv_size)
+            self.buf.seek(0,os.SEEK_END)
             self.buf.write(data)
             self.buf.seek(pos)
             line += self.buf.readline()
