@@ -58,7 +58,7 @@ class SSHClient:
         self.server_kex_init = None
         self.kex_result = None
         self.session_id = None
-        self.tasks = []
+        self.tasks = set()
         self.events: dict[int, curio.Event] = {}
         self.close_event = curio.Event()
         self.channel_events: dict[int, curio.Event] = {}
@@ -100,10 +100,10 @@ class SSHClient:
         await self.sock.send(self.version.encode() + b"\r\n")
         if start_kex:
             await self.start_kex()
-            self.tasks.append(await curio.spawn(self.get_packets))
+            self.tasks.add(await curio.spawn(self.get_packets))
 
     async def get_packets(self):
-        self.tasks.append(await curio.spawn(self.clean_up_tasks))
+        self.tasks.add(await curio.spawn(self.clean_up_tasks))
         while True:
             packet = await self.sock.read_packet()
             msg = HANDLERS[packet.opcode].parse(Buffer(packet.payload))
@@ -407,11 +407,12 @@ class SSHClient:
 
     async def clean_up_tasks(self):
         while True:
-            for task in self.tasks:
+            for task in self.tasks.copy():
                 if task.terminated:
                     await task.join()
+                    self.tasks.discard(task)
             await curio.sleep(5)
-    
+
     ### handlers
     async def handle_auth_response(self,msg:SSHMsgUserauthSuccess):
         self.logger.info(msg)
