@@ -214,3 +214,6 @@ class Connection:
         self.encrypted = True
         self.block_size = self.client_enc.block_size
         # self.server_seq_no = self.seq_no = 0
+
+    async def close(self):
+        await self.sock.close()

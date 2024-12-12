@@ -63,6 +63,11 @@ class SSHClient:
         self.close_event = curio.Event()
         self.channel_events: dict[int, curio.Event] = {}
         self.channels = {}
+        self.task_event = curio.Event()
+        self.auth_event = curio.Event()
+        self.authenticated = False
+        self.server_closed = False
+        self.close_reason = ''
 
         self.message_handlers = {
             SSHMsgDisconnect.opcode: self.handle_message_disconnect,
@@ -98,6 +103,7 @@ class SSHClient:
             self.tasks.append(await curio.spawn(self.get_packets))
 
     async def get_packets(self):
+        self.tasks.append(await curio.spawn(self.clean_up_tasks))
         while True:
             packet = await self.sock.read_packet()
             msg = HANDLERS[packet.opcode].parse(Buffer(packet.payload))
@@ -395,8 +401,15 @@ class SSHClient:
                 await task.join()
             except Exception:
                 pass
-        # self.sock.close()
+        await self.sock.close()
 
+    async def clean_up_tasks(self):
+        while True:
+            for task in self.tasks:
+                if task.terminated:
+                    await task.join()
+            await curio.sleep(5)
+    
     ### handlers
     async def handle_auth_response(self,msg:SSHMsgUserauthSuccess):
         self.logger.info(msg)
@@ -406,8 +419,14 @@ class SSHClient:
         else:
             self.authenticated = True
         await self.auth_event.set()
+            
     async def handle_message_disconnect(self, m: SSHMsgDisconnect):
         self.logger.log(logging.INFO, "Received disconnect message (%s)", m.description)
+        for e in self.events.values():
+            await e.set()
+        self.close_reason = m.description
+        self.server_closed = True
+        await self.auth_event.set()
         await self.close()
         # raise RuntimeError("server closed clonnection: %s"%m.description)
 
@@ -461,6 +480,13 @@ class SSHClient:
             self.channels[chid] = channel
             self.logger.info("Channel open success %s", chid)
         await ev.set()
+
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self,*args):
+        await self.close()
 
     # def __await__(self):
     # rself.close_event.wait()

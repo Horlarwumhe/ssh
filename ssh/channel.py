@@ -106,8 +106,9 @@ class Channel:
         #     return data
         return await self.recv(n)
 
-    def close(self):
+    async def close(self):
         self.closed = True
+        await self.data_event.set()
 
     async def set_eof(self):
         self.eof = True
