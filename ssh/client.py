@@ -307,11 +307,13 @@ class SSHClient:
         await self.do_auth()
 
     async def do_auth(self):
+        if self.close_event.is_set():
+            raise RuntimeError("server closed connection (%s)"%self.close_reason)
         self.auth_event.clear()
         await self.auth_event.wait()
         if not self.authenticated:
             if self.server_closed:
-                raise TypeError("Authentication Failed %s"%self.close_reason)
+                raise TypeError("Authentication Failed (%s)"%self.close_reason)
             raise TypeError("Authencation error")
         return True
 
@@ -422,6 +424,7 @@ class SSHClient:
             
     async def handle_message_disconnect(self, m: SSHMsgDisconnect):
         self.logger.log(logging.INFO, "Received disconnect message (%s)", m.description)
+        await self.close_event.set()
         for e in self.events.values():
             await e.set()
         self.close_reason = m.description
