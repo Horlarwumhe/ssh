@@ -414,7 +414,7 @@ class SSHClient:
     async def handle_auth_response(self,msg:SSHMsgUserauthSuccess):
         self.logger.info(msg)
         if isinstance(msg,SSHMsgUserauthFailure):
-            self.authenticated = True
+            self.authenticated = False
             self.logger.info("auth failure %s",msg)
         else:
             self.authenticated = True
