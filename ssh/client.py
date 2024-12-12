@@ -75,6 +75,8 @@ class SSHClient:
             SSHMsgChannelExtendData.opcode: self.handle_channel_data,
             SSHMsgChannelOpenConfirmation.opcode: self.handle_channel_open,
             SSHMsgChannelOpenFailure.opcode: self.handle_channel_open,
+            SSHMsgUserauthFailure.opcode: self.handle_auth_response,
+            SSHMsgUserauthSuccess.opcode: self.handle_auth_response
         }
 
     async def connect(self, host, port, start_kex=False):
@@ -273,6 +275,7 @@ class SSHClient:
             flag=False,
         )
         await self.send_message(auth)
+        await self.do_auth()
         # self.wait_for_message()
 
     async def auth_public_key(self, username, key_path=""):
@@ -295,6 +298,17 @@ class SSHClient:
             signatrue=signature,
         )
         await self.send_message(auth)
+        await self.do_auth()
+
+    async def do_auth(self):
+        self.auth_event.clear()
+        await self.auth_event.wait()
+        if not self.authenticated:
+            if self.server_closed:
+                raise TypeError("Authentication Failed %s"%self.close_reason)
+            raise TypeError("Authencation error")
+        return True
+
 
     def compute_auth_signature(self, username, pk):
         b = Buffer()
@@ -384,6 +398,14 @@ class SSHClient:
         # self.sock.close()
 
     ### handlers
+    async def handle_auth_response(self,msg:SSHMsgUserauthSuccess):
+        self.logger.info(msg)
+        if isinstance(msg,SSHMsgUserauthFailure):
+            self.authenticated = True
+            self.logger.info("auth failure %s",msg)
+        else:
+            self.authenticated = True
+        await self.auth_event.set()
     async def handle_message_disconnect(self, m: SSHMsgDisconnect):
         self.logger.log(logging.INFO, "Received disconnect message (%s)", m.description)
         await self.close()
