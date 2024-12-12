@@ -99,7 +99,7 @@ class Connection:
 
     async def read(self, size):
         data = self.buf.read(size)
-        if len(data) < size:
+        while len(data) < size:
             pos = self.buf.tell()
             b = await self.sock.recv(size * 4)  # read upto 4x requested size
             if not b:
