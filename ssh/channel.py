@@ -27,6 +27,9 @@ class Channel:
         self.exit = None
         self.data_event = curio.Event()
         self.is_exec = False
+        self.request_event = curio.Event()
+        self.request_success = None
+        self.close_sent = False
 
     @classmethod
     def next_id(cls):
@@ -42,13 +45,17 @@ class Channel:
             recipient_channel=self.remote_id, type="exec", want_reply=True, command=cmd
         )
         await self.client.send_message(msg)
+        await self.request_event.wait()
         self.is_exec = True
 
     async def request_tty(self):
         pass
 
     async def request_shell(self):
-        pass
+        msg = MSG.SSHMsgChannelRequest(
+            recipient_channel=self.remote_id, type="shell", want_reply=True
+        )
+        await self.client.send_message(msg)
 
     async def send(self, data: str | bytes):
         if self.closed:
@@ -105,9 +112,14 @@ class Channel:
         #         continue
         #     return data
         return await self.recv(n)
-
+    def has_data(self):
+        return self.data_event.is_set()
+    
     async def close(self):
         self.closed = True
+        if not self.close_sent:
+            await self.client.send_message(MSG.SSHMsgChannelClose(recipient_channel=self.remote_id))
+            self.close_sent = True
         await self.data_event.set()
 
     async def set_eof(self):
@@ -120,6 +132,9 @@ class Channel:
     @property
     def exit_code(self):
         return self.exit
+    async def set_request_response(self,value):
+        self.request_success = value
+        await self.request_event.set()
 
 
 class ChannelError(Channel):
