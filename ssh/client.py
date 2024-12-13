@@ -439,14 +439,16 @@ class SSHClient:
         channel = self.channels.get(chan_id)
         if m.opcode == SSHMsgChannelClose.opcode:
             self.logger.log(INFO, "Channel closed (%s)", m.recipient_channel)
-            channel.close()
+            await channel.close()
             self.channels.pop(chan_id)
         if m.opcode == SSHMsgChannelSuccess.opcode:
             # channel requests succes
             self.logger.log(INFO, "Channel request success (%s)", m.recipient_channel)
+            await channel.set_request_response(True)
         if m.opcode == SSHMsgChannelFailure.opcode:
             # channel request failure
             self.logger.log(INFO, "Channel request failure (%s)", m.recipient_channel)
+            await channel.set_request_response(False)
         if m.opcode == SSHMsgChannelEOF.opcode:
             self.logger.log(INFO, "Channel eof (%s)", m.recipient_channel)
             await channel.set_eof()
