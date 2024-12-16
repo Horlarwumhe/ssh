@@ -116,6 +116,7 @@ class SSHClient:
             if fn:
                 self.logger.log(DEBUG, "calling handler %s", fn)
                 self.tasks.append(await curio.spawn(fn, msg))
+                self.tasks.add(await curio.spawn(fn, msg))
             else:
                 self.logger.log(logging.INFO, "handler not found %s", msg)
 
@@ -396,9 +397,9 @@ class SSHClient:
         return await self.do_open_channel(m)
 
     async def close(self):
-        for task in self.tasks:
+        for task in self.tasks.copy():
             await task.cancel()
-        for task in self.tasks:
+        for task in self.tasks.copy():
             try:
                 await task.join()
             except Exception:
