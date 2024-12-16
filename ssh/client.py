@@ -422,14 +422,14 @@ class SSHClient:
         else:
             self.authenticated = True
         await self.auth_event.set()
-            
+
     async def handle_message_disconnect(self, m: SSHMsgDisconnect):
         self.logger.log(logging.INFO, "Received disconnect message (%s)", m.description)
+        self.close_reason = m.description
+        self.server_closed = True
         await self.close_event.set()
         for e in self.events.values():
             await e.set()
-        self.close_reason = m.description
-        self.server_closed = True
         await self.auth_event.set()
         await self.close()
         # raise RuntimeError("server closed clonnection: %s"%m.description)
