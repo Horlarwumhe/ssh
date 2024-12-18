@@ -2,6 +2,12 @@ import logging
 import os
 from dataclasses import dataclass
 
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric.x25519 import (
+    X25519PrivateKey,
+    X25519PublicKey,
+)
+
 import ssh.client
 from ssh import message as msg
 from ssh.stream import Buffer
@@ -108,9 +114,49 @@ class DHGroup18SHA512(DHKex):
     hash_algo = sha512
 
 
+
 class Curve25519:
     name: str = "curve25519-sha256"
     hash_algo: callable = sha256
 
-    def start(self, client: "ssh.client.SSHClient"):
-        req = msg.SSHKex
+    def __init__(self, client: "ssh.client.SSHClient"):
+        self.client = client
+
+    async def start(self):
+        # https://datatracker.ietf.org/doc/html/rfc5656#section-4
+        log.log(logging.DEBUG, f"Using {self.name}  key exchnage")
+        pk = X25519PrivateKey.generate()
+        pub = pk.public_key().public_bytes_raw()
+        req = msg.SSHMsgKexECDHInit(pub_key=pub)
+        await self.client.send_message(req)
+        packet = await self.client.sock.read_packet()
+        res = msg.SSHMsgKexECDHReply.parse(Buffer(packet.payload))
+        sig = res.sig
+        server_pub = X25519PublicKey.from_public_bytes(res.pub_key)
+        K = pk.exchange(server_pub)
+        K = int.from_bytes(K)
+        H = type(self).hash_algo(
+            bytes(
+                msg.ECDHHashSig(
+                    client_version=self.client.version,
+                    server_version=self.client.remote_version,
+                    client_kex_init=bytes(self.client.kex_init),
+                    server_kex_init=bytes(self.client.server_kex_init),
+                    server_host_key=res.host_key,
+                    client_pub_key=pub,
+                    server_pub_key=res.pub_key,
+                    K=K,
+                )
+            )
+        )
+        server_key = self.client.available_server_host_key_algo[
+            self.client.server_host_key_algo
+        ].from_buffer(Buffer(res.host_key))
+        sig = Buffer(sig)
+        hash_name = sig.read_string()
+        assert server_key.verify(
+            sig.read_binary(), H, hash_name
+        ), "Signature verification failed"
+        return KexResult(K=K,H=H)
+
+
