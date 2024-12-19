@@ -26,6 +26,7 @@ class Channel:
         self.closed = self.eof = False
         self.exit = None
         self.data_event = curio.Event()
+        self.ext_data_event = curio.Event()
         self.is_exec = False
         self.request_event = curio.Event()
         self.request_success = None
@@ -102,15 +103,22 @@ class Channel:
             self.ext_buf.seek(pos)
 
     async def stderr(self, n):
-        return self.ext_buf.read(n)
+        await self.lock2.acquire()
+        try:
+            data = self.ext_buf.read(n)
+            if data == b"" and self.is_active():
+                self.ext_data_event.clear()
+                # release lock so writer wont block
+                await self.lock2.release()
+                await self.ext_data_event.wait()
+                return self.ext_buf.read(n)
+            else:
+                return data
+        finally:
+            if self.lock2.locked():
+                await self.lock2.release()
 
     async def stdout(self, n):
-        # while True:
-        #     data = self.buf.read(n)
-        #     if not data and self.exit_code is None:
-        #         await curio.sleep(0.2)
-        #         continue
-        #     return data
         return await self.recv(n)
     def has_data(self):
         return self.data_event.is_set()
@@ -121,10 +129,12 @@ class Channel:
             await self.client.send_message(MSG.SSHMsgChannelClose(recipient_channel=self.remote_id))
             self.close_sent = True
         await self.data_event.set()
+        await self.ext_data_event.set()
 
     async def set_eof(self):
         self.eof = True
         await self.data_event.set()
+        await self.ext_data_event.set()
 
     def set_exit_code(self, exit):
         self.exit = exit
