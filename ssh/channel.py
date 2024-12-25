@@ -124,6 +124,7 @@ class Channel:
             self.ext_buf.seek(0,os.SEEK_END)
             self.ext_buf.write(data)
             self.ext_buf.seek(pos)
+            await self.ext_data_event.set()
 
     async def stderr(self, n):
         await self.lock2.acquire()
