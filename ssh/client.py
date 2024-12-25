@@ -191,8 +191,8 @@ class SSHClient:
         # K || H || "A" || session_id)
         # https://datatracker.ietf.org/doc/html/rfc4253#section-7.2
         # Dont use any cipher or mac algo that needs key greater choosen sha
-        b = util.deflate_long(K)
-        K = int.to_bytes(len(b), 4) + b  # mpint encoded
+        K = util.to_mpint(K)
+        # K = int.to_bytes(len(b), 4) + b  # mpint encoded
         hash_algo = self.available_kex_algo[self.kex_algo].hash_algo
         encryptor = self.available_encryption_algo[self.encryption_algo]
         key_size, iv_size = encryptor.key_size, encryptor.block_size

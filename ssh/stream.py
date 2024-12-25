@@ -24,7 +24,7 @@ class Buffer(io.BytesIO):
         return self.read(n)
 
     def read_mpint(self):
-        return util.inflate_long(self.read_binary())
+        return int.from_bytes(self.read_binary(),"big",signed=True)
 
     def write_int(self, i: int):
         self.write(int.to_bytes(i, 4))
@@ -44,7 +44,7 @@ class Buffer(io.BytesIO):
         return self.write(b)
 
     def write_mpint(self, i: int):
-        self.write_binary(util.deflate_long(i))
+        self.write(util.to_mpint(i))
         # s = round((i.bit_length()+7)/8)
         # b = int.to_bytes(i,s,signed=True)
         # assert len(b) == s, "mpint error len(b): %s != s:%s "%(len(b),s)
