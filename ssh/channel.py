@@ -49,14 +49,37 @@ class Channel:
         await self.request_event.wait()
         self.is_exec = True
 
-    async def request_tty(self):
-        pass
+    async def request_tty(
+        self, term="vt100", width=80, height=24, width_pixels=0, height_pixels=0
+    ):
+        self.request_event.clear()
+        msg = MSG.SSHMsgChannelRequest(
+            recipient_channel=self.remote_id,
+            type="pty-req",
+            want_reply=True,
+            width_char=width,
+            heigth_char=height,
+            width_pixel=width_pixels,
+            heigth_pixel=height_pixels,
+            term_env_var=term,
+        )
+        await self.client.send_message(msg)
+        await self.request_event.wait()
+        if not self.request_success:
+            raise RuntimeError("Failed to request for tty")
+        self.request_success = None
 
     async def request_shell(self):
+        self.request_event.clear()
         msg = MSG.SSHMsgChannelRequest(
             recipient_channel=self.remote_id, type="shell", want_reply=True
         )
         await self.client.send_message(msg)
+        await self.request_event.wait()
+        if not self.request_success:
+            raise RuntimeError("Failed to request for shell")
+        self.request_success = None
+
 
     async def send(self, data: str | bytes):
         if self.closed:

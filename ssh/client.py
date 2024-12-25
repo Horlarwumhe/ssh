@@ -352,7 +352,7 @@ class SSHClient:
 
     async def run_command(self, cmd):
         ch = await self.open_session()
-        ch.run_command(cmd)
+        await ch.run_command(cmd)
         return ch
 
     async def open_port_forward(self, dest_addr, dest_port, src_addr, src_port):
