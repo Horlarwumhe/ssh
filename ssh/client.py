@@ -40,7 +40,7 @@ class SSHClient:
         "hmac-sha2-512": mac.HMACSHA512,
         "hmac-sha1": mac.HMACSHA1,
     }
-    preferred_server_host_key_algo = ()
+    preferred_server_host_key_algo = ""
     available_server_host_key_algo: dict[str, callable] = {
         "rsa-sha2-512": key.RSAKey,
         "rsa-sha2-256": key.RSAKey,
@@ -67,7 +67,7 @@ class SSHClient:
         self.auth_event = curio.Event()
         self.authenticated = False
         self.server_closed = False
-        self.close_reason = ''
+        self.close_reason = ""
 
         self.message_handlers = {
             SSHMsgDisconnect.opcode: self.handle_message_disconnect,
@@ -128,6 +128,10 @@ class SSHClient:
     #         nursery.start_soon(self.loop, "b")
 
     async def start_kex(self):
+        def insert_preferred_algo(algo, preferred):
+            if preferred:
+                algo.insert(0, preferred)
+    
         req = SSHMsgKexInit(
             cookie=os.urandom(16),
             kex_algo=list(self.available_kex_algo.keys()),
@@ -146,25 +150,17 @@ class SSHClient:
             languages_server_to_client=list(),
             first_kex_packet_follows=False,
         )
-
-        if self.preferred_kex_algo:
-            req.kex_algo.insert(0, self.preferred_kex_algo)
-        if self.preferred_encryption_algo:
-            req.encryption_algo_client_to_server.insert(
-                0, self.preferred_encryption_algo
-            )
-            req.encryption_algo_server_to_client.insert(
-                0, self.preferred_encryption_algo
-            )
-        if self.preferred_server_host_key_algo:
-            req.server_host_key_algo.insert(0, self.preferred_server_host_key_algo)
-        if self.preferred_mac_algo:
-            req.mac_algo_client_to_server.insert(0, self.preferred_mac_algo)
-            req.mac_algo_server_to_client.insert(0, self.preferred_mac_algo)
+        
+        insert_preferred_algo(req.kex_algo, self.preferred_kex_algo)
+        insert_preferred_algo(req.encryption_algo_client_to_server, self.preferred_encryption_algo)
+        insert_preferred_algo(req.encryption_algo_server_to_client, self.preferred_encryption_algo)
+        insert_preferred_algo(req.server_host_key_algo, self.preferred_server_host_key_algo)
+        insert_preferred_algo(req.mac_algo_client_to_server, self.preferred_mac_algo)
+        insert_preferred_algo(req.mac_algo_server_to_client, self.preferred_mac_algo)
 
         await self.sock.send_packet(bytes(req))
         packet = await self.sock.read_packet()
-        resp = HANDLERS[packet.opcode].parse(Buffer(packet.payload))
+        resp = SSHMsgKexInit.parse(Buffer(packet.payload))
         self.server_kex_init = resp
         self.kex_init = req
         self.set_algos(resp)
@@ -177,43 +173,19 @@ class SSHClient:
         # await self.sock.send_packet(bytes(self.kex_init))
 
     def set_algos(self, server_kex: SSHMsgKexInit):
-        self.kex_algo = list(
-            filter(
-                lambda x: x in server_kex.kex_algo,
-                chain((self.preferred_kex_algo,), self.available_kex_algo),
-            )
-        )[0]
-        self.server_host_key_algo = list(
-            filter(
-                lambda x: x in server_kex.server_host_key_algo,
-                chain(
-                    (self.preferred_server_host_key_algo,),
-                    self.available_server_host_key_algo,
-                ),
-            )
-        )[0]
-        self.encryption_algo = list(
-            filter(
-                lambda x: x in server_kex.encryption_algo_client_to_server,
-                chain(
-                    (self.preferred_encryption_algo,), self.available_encryption_algo
-                ),
-            )
-        )[0]
-        self.mac_algo = list(
-            filter(
-                lambda x: x in server_kex.mac_algo_client_to_server,
-                chain((self.preferred_mac_algo,), self.available_mac_algo),
-            )
-        )[0]
+        def select_algo(server,available,preferred):
+            return list(filter(lambda x: x in server,chain((preferred,),available)))[0]
+        
+        self.kex_algo = select_algo(server_kex.kex_algo,self.available_kex_algo,self.preferred_kex_algo)
+        self.server_host_key_algo = select_algo(server_kex.server_host_key_algo,self.available_server_host_key_algo,self.preferred_server_host_key_algo)
+        self.encryption_algo = select_algo(server_kex.encryption_algo_client_to_server,self.available_encryption_algo,self.preferred_encryption_algo)
+        self.mac_algo = select_algo(server_kex.mac_algo_client_to_server,self.available_mac_algo,self.preferred_mac_algo)
         self.compression_algo = "none"  # TODO
-        self.logger.log(logging.DEBUG, "Kex Algo: %s", self.kex_algo)
-        self.logger.log(
-            logging.DEBUG, "server host key algo: %s", self.server_host_key_algo
-        )
-        self.logger.log(logging.DEBUG, "encryption algo: %s", self.encryption_algo)
-        self.logger.log(logging.DEBUG, "mac algo: %s", self.mac_algo)
-        self.logger.log(logging.DEBUG, "compression algo: %s", self.compression_algo)
+        self.logger.log(logging.INFO, "Kex Algo: %s", self.kex_algo)
+        self.logger.log(logging.INFO, "server host key algo: %s", self.server_host_key_algo)
+        self.logger.log(logging.INFO, "encryption algo: %s", self.encryption_algo)
+        self.logger.log(logging.INFO, "mac algo: %s", self.mac_algo)
+        self.logger.log(logging.INFO, "compression algo: %s", self.compression_algo)
 
     def set_ciphers(self, K, H):
         # K || H || "A" || session_id)
