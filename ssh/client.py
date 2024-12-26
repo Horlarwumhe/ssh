@@ -179,28 +179,26 @@ class SSHClient:
     def set_ciphers(self, K, H):
         # K || H || "A" || session_id)
         # https://datatracker.ietf.org/doc/html/rfc4253#section-7.2
-        # Dont use any cipher or mac algo that needs key greater choosen sha
+        def compute_key(x,size):
+             key = hash_algo(K + H + x.encode() + self.session_id)[:size]
+             while len(key) < size:
+                key += hash_algo(K + H + key)
+             return key[:size]
         K = util.to_mpint(K)
-        # K = int.to_bytes(len(b), 4) + b  # mpint encoded
         hash_algo = self.available_kex_algo[self.kex_algo].hash_algo
         encryptor = self.available_encryption_algo[self.encryption_algo]
         key_size, iv_size = encryptor.key_size, encryptor.block_size
         mac_algo = self.available_mac_algo[self.mac_algo]
-        if mac_algo is None:
-            pass
-        else:
-            mac_size = mac_algo.size
-        client_to_server_iv = hash_algo(K + H + b"A" + self.session_id)[:iv_size]
-        server_to_client_iv = hash_algo(K + H + b"B" + self.session_id)[:iv_size]
-        client_to_server_key = hash_algo(K + H + b"C" + self.session_id)[:key_size]
-        server_to_client_key = hash_algo(K + H + b"D" + self.session_id)[:key_size]
-        if mac_algo is not None:
-            client_to_server_mac = hash_algo(K + H + b"E" + self.session_id)[:mac_size]
-            server_to_client_mac = hash_algo(K + H + b"F" + self.session_id)[:mac_size]
-            self.sock.set_mac_algo(
-                mac_algo(client_to_server_mac), mac_algo(server_to_client_mac)
-            )
-
+        mac_size = mac_algo.size
+        client_to_server_iv = compute_key("A",iv_size)
+        server_to_client_iv = compute_key("B",iv_size)
+        client_to_server_key = compute_key("C",key_size)
+        server_to_client_key = compute_key("D",key_size)    
+        client_to_server_mac = compute_key("E",mac_size)
+        server_to_client_mac = compute_key("F",mac_size)
+        self.sock.set_mac_algo(
+            mac_algo(client_to_server_mac), mac_algo(server_to_client_mac)
+        )
         self.sock.set_encryptor(
             encryptor(client_to_server_key, client_to_server_iv),
             encryptor(server_to_client_key, server_to_client_iv),
