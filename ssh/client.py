@@ -84,7 +84,7 @@ class SSHClient:
             SSHMsgUserauthSuccess.opcode: self.handle_auth_response,
         }
 
-    async def connect(self, host, port, start_kex=False):
+    async def connect(self, host, port):
         await self.sock.connect(host, port)
         while True:
             line = await self.sock.readline()
@@ -97,9 +97,8 @@ class SSHClient:
             if not line:
                 raise ConnectionResetError("server diconnnected")
         await self.sock.send(self.version.encode() + b"\r\n")
-        if start_kex:
-            await self.start_kex()
-            self.tasks.add(await curio.spawn(self.get_packets))
+        await self.start_kex()
+        self.tasks.add(await curio.spawn(self.get_packets))
 
     async def get_packets(self):
         self.tasks.add(await curio.spawn(self.clean_up_tasks))
