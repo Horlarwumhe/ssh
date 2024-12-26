@@ -36,7 +36,7 @@ class DHKex:
 
     async def start(self) -> KexResult:
         # https://datatracker.ietf.org/doc/html/rfc4253#section-8
-        log.log(logging.DEBUG, f"Using {self.name} key_size {self.key_size}")
+        log.log(logging.INFO, f"Using {self.name} key_size {self.key_size}")
         q = (self.P - 1) // 2
         x = int.from_bytes(os.urandom(q.bit_length() // 8))
         assert x < q, "error x < (P-1)//2 %d < %d" % (x, q)
@@ -124,7 +124,7 @@ class Curve25519:
 
     async def start(self):
         # https://datatracker.ietf.org/doc/html/rfc5656#section-4
-        log.log(logging.DEBUG, f"Using {self.name}  key exchnage")
+        log.log(logging.INFO, f"Using {self.name}  key exchnage")
         pk = X25519PrivateKey.generate()
         pub = pk.public_key().public_bytes_raw()
         req = msg.SSHMsgKexECDHInit(pub_key=pub)
@@ -133,8 +133,7 @@ class Curve25519:
         res = msg.SSHMsgKexECDHReply.parse(Buffer(packet.payload))
         sig = res.sig
         server_pub = X25519PublicKey.from_public_bytes(res.pub_key)
-        K = pk.exchange(server_pub)
-        K = int.from_bytes(K)
+        K = int.from_bytes(pk.exchange(server_pub))
         H = type(self).hash_algo(
             bytes(
                 msg.ECDHHashSig(

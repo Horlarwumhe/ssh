@@ -18,7 +18,6 @@ def code_to_desc(code):
     try:
         return msg.HANDLERS.get(code).desc
     except Exception as e:
-        logger.log(DEBUG, f"{code=} not found {e=}")
         return str(code)
 
 
@@ -104,7 +103,7 @@ class Connection:
             b = await self.sock.recv(size * 4)  # read upto 4x requested size
             if not b:
                 raise ConnectionAbortedError("server closed")
-            self.buf.seek(0,os.SEEK_END)
+            self.buf.seek(0, os.SEEK_END)
             self.buf.write(b)
             self.buf.seek(pos)
             data += self.buf.read(size - len(data))
@@ -146,7 +145,7 @@ class Connection:
             + padding
         )
         assert mac == my_mac, (
-            "error computed mac not macth server mac mac(%s) != my_mac(%s) "
+            "error computed mac not match server mac mac(%s) != my_mac(%s) "
             % (mac.hex(), my_mac.hex())
         )
         logger.log(
@@ -192,7 +191,7 @@ class Connection:
         if not line.endswith(b"\n"):
             pos = self.buf.tell()
             data = await self.sock.recv(self.recv_size)
-            self.buf.seek(0,os.SEEK_END)
+            self.buf.seek(0, os.SEEK_END)
             self.buf.write(data)
             self.buf.seek(pos)
             line += self.buf.readline()

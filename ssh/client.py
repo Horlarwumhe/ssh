@@ -81,7 +81,7 @@ class SSHClient:
             SSHMsgChannelOpenConfirmation.opcode: self.handle_channel_open,
             SSHMsgChannelOpenFailure.opcode: self.handle_channel_open,
             SSHMsgUserauthFailure.opcode: self.handle_auth_response,
-            SSHMsgUserauthSuccess.opcode: self.handle_auth_response
+            SSHMsgUserauthSuccess.opcode: self.handle_auth_response,
         }
 
     async def connect(self, host, port, start_kex=False):
@@ -94,7 +94,6 @@ class SSHClient:
                     logging.INFO, " setting remote_version %s" % self.remote_version
                 )
                 break
-            self.logger.info("got %s" % line)
             if not line:
                 raise ConnectionResetError("server diconnnected")
         await self.sock.send(self.version.encode() + b"\r\n")
@@ -107,25 +106,16 @@ class SSHClient:
         while True:
             packet = await self.sock.read_packet()
             msg = HANDLERS[packet.opcode].parse(Buffer(packet.payload))
-            # await curio.sleep(0.1)
             if msg.opcode in self.events:
                 self.logger.debug("Found message in events %s", msg)
                 ev = self.events.pop(msg.opcode)
                 await ev.set()
             fn = self.message_handlers.get(msg.opcode)
             if fn:
-                self.logger.log(DEBUG, "calling handler %s", fn)
-                self.tasks.append(await curio.spawn(fn, msg))
+                self.logger.log(DEBUG, "calling handler for %s", msg)
                 self.tasks.add(await curio.spawn(fn, msg))
             else:
-                self.logger.log(logging.INFO, "handler not found %s", msg)
-
-    # async def read_incoming
-
-    # async def run(self):
-    #     async with trio.open_nursery() as nursery:
-    #         nursery.start_soon(self.loop, "a")
-    #         nursery.start_soon(self.loop, "b")
+                self.logger.log(logging.INFO, "handler not found %s", msg.__class__)
 
     async def start_kex(self):
         def insert_preferred_algo(algo, preferred):
@@ -170,7 +160,6 @@ class SSHClient:
         self.set_ciphers(kex_result.K, kex_result.H)
         await self.end_kex_init()
         self.sock.start_encryption()
-        # await self.sock.send_packet(bytes(self.kex_init))
 
     def set_algos(self, server_kex: SSHMsgKexInit):
         def select_algo(server,available,preferred):
@@ -241,11 +230,9 @@ class SSHClient:
     async def auth_password(self, username, password=""):
         svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
-        self.logger.info("waiting for accept")
         if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
             self.logger.info("service request timeout auth failed")
             return
-        self.logger.info("accepted")
         auth = SSHMsgUserauthRequest(
             username=username,
             service_name="ssh-connection",
@@ -281,15 +268,14 @@ class SSHClient:
 
     async def do_auth(self):
         if self.close_event.is_set():
-            raise RuntimeError("server closed connection (%s)"%self.close_reason)
+            raise RuntimeError("server closed connection (%s)" % self.close_reason)
         self.auth_event.clear()
         await self.auth_event.wait()
         if not self.authenticated:
             if self.server_closed:
-                raise TypeError("Authentication Failed (%s)"%self.close_reason)
+                raise TypeError("Authentication Failed (%s)" % self.close_reason)
             raise TypeError("Authencation error")
         return True
-
 
     def compute_auth_signature(self, username, pk):
         b = Buffer()
@@ -326,7 +312,6 @@ class SSHClient:
             if silent:
                 return False
             raise
-        self.logger.info("received signal done waiting %s", msg)
         return True
 
     async def open_session(self) -> Channel:
@@ -369,9 +354,10 @@ class SSHClient:
         return await self.do_open_channel(m)
 
     async def close(self):
-        for task in self.tasks.copy():
+        tasks = self.tasks.copy()
+        for task in tasks:
             await task.cancel()
-        for task in self.tasks.copy():
+        for task in tasks:
             try:
                 await task.join()
             except Exception:
@@ -387,11 +373,11 @@ class SSHClient:
             await curio.sleep(5)
 
     ### handlers
-    async def handle_auth_response(self,msg:SSHMsgUserauthSuccess):
+    async def handle_auth_response(self, msg: SSHMsgUserauthSuccess):
         self.logger.info(msg)
-        if isinstance(msg,SSHMsgUserauthFailure):
+        if isinstance(msg, SSHMsgUserauthFailure):
             self.authenticated = False
-            self.logger.info("auth failure %s",msg)
+            self.logger.info("auth failure %s", msg)
         else:
             self.authenticated = True
         await self.auth_event.set()
@@ -405,7 +391,7 @@ class SSHClient:
             await e.set()
         await self.auth_event.set()
         await self.close()
-        # raise RuntimeError("server closed clonnection: %s"%m.description)
+        raise RuntimeError("server closed connection: %s"%m.description)
 
     async def handle_channel_message(self, m: SSHMsgChannelEOF):
         chan_id = m.recipient_channel
@@ -438,7 +424,6 @@ class SSHClient:
         channel = self.channels.get(chan_id)
         if isinstance(m, SSHMsgChannelExtendData):
             self.logger.log(INFO, "Channel  data stderr (%s)", m.recipient_channel)
-            print(data.decode())
             await channel.set_ext_data(data)
         else:
             self.logger.log(INFO, "Channel  data stdout (%s)", m.recipient_channel)
