@@ -228,8 +228,7 @@ class SSHClient:
         svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
         if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
-            self.logger.info("service request timeout auth failed")
-            return
+            raise TypeError("service request timeout auth failed")
         auth = SSHMsgUserauthRequest(
             username=username,
             service_name="ssh-connection",
@@ -244,9 +243,8 @@ class SSHClient:
     async def auth_public_key(self, username, key_path=""):
         svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
-        if not await self.wait_for_message(SSHMsgServiceAccept, 10, silent=True):
-            self.logger.info("service request timeout auth failed")
-            return
+        if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
+            raise TypeError("service request timeout auth failed")
         pk = key.RSAKey.from_file(key_path)
         signature = self.compute_auth_signature(username, pk)
         signature = bytes(SSHSignature(algo=self.server_host_key_algo, sig=signature))
@@ -435,7 +433,9 @@ class SSHClient:
         if isinstance(msg, SSHMsgChannelOpenFailure):
             self.logger.info("channel open failed %s", msg.description)
             description = msg.error_map.get(msg.reason_code, msg.description)
-            self.channels[chid] = ChannelError("channel open failed %s" % description)
+            self.channels[chid] = ChannelError(
+                "channel open failed [%s] %s" %(description,msg.description)
+            )
         else:
             channel = Channel(self, chid, msg.sender_channel)
             self.channels[chid] = channel
