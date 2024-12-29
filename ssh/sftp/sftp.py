@@ -81,9 +81,11 @@ class SFTP:
         resp = await self.get_response(r.id)
         if isinstance(resp, SSHFXPSTATUS):
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
-        r = SSHFXPREADDIR(id=rand_id(), handle=resp.handle)
+        handle = resp.handle
+        r = SSHFXPREADDIR(id=rand_id(), handle=handle)
         await self.send(r)
         resp = await self.get_response(r.id)
+        await self.send(SSHFXPCLOSE(id=rand_id(), handle=handle))
         paths = []
         if isinstance(resp, SSHFXPNAME):
             for name in resp.names:
@@ -142,7 +144,7 @@ class SFTP:
         Remove a directory on the remote server.
         :param path: the path of the directory to remove
         """
-        r = SSHFXPRMDIR(id=rand_id(), path=path)
+        r = SSHFXPRMDIR(id=rand_id(), path=str(path))
         await self.send(r)
         resp = await self.get_response(r.id)
         if resp.error != SSH_FXF_STATUS.OK:
