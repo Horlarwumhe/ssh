@@ -80,6 +80,25 @@ class Channel:
             raise RuntimeError("Failed to request for shell")
         self.request_success = None
 
+    async def request_subsystem(self, name):
+        """
+        Request a subsystem for the channel
+        param name: name of the subsystem
+        """
+        self.request_event.clear()
+        msg = MSG.SSHMsgChannelRequest(
+            recipient_channel=self.remote_id,
+            type="subsystem",
+            want_reply=True,
+            subsystem_name=name,
+        )
+        await self.client.send_message(msg)
+        await self.request_event.wait()
+        if not self.request_success:
+            raise RuntimeError("Failed to open subsystem")
+        self.request_success = None
+        if name == "sftp":
+            self.sftp = True
 
     async def send(self, data: str | bytes):
         if self.closed:

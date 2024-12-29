@@ -616,7 +616,7 @@ class SSHMsgChannelRequest(SSHMessage):
     # shell request
     # no data
     # subsystem request
-    subsytem_name: str = ""
+    subsystem_name: str = ""
     # exec request
     command: str = ""
     # signal request
@@ -719,7 +719,7 @@ class SSHMsgChannelRequest(SSHMessage):
             buf.write_string(self.name)
             buf.write_string(self.value)
         elif self.type == "subsystem":
-            buf.write_string(self.subsytem_name)
+            buf.write_string(self.subsystem_name)
         elif self.type == "exec":
             buf.write_string(self.command)
         elif self.type == "signal":

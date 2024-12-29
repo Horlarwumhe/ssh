@@ -6,6 +6,7 @@ import curio
 
 from ssh import util
 from ssh.channel import Channel, ChannelError
+from ssh.sftp import SFTP
 from ssh.stream import Buffer
 
 from . import encryption as enc
@@ -348,6 +349,16 @@ class SSHClient:
         )
         return await self.do_open_channel(m)
 
+    async def open_sftp(self):
+        """
+        Open a new sftp session
+        """
+        ch = await self.open_session()
+        await ch.request_subsystem("sftp")
+        s = SFTP(ch)
+        await s.init()
+        return s
+    
     async def close(self):
         tasks = self.tasks.copy()
         for task in tasks:

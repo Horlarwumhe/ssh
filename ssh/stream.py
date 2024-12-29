@@ -7,6 +7,9 @@ class Buffer(io.BytesIO):
     def read_int(self) -> int:
         return int.from_bytes(self.read(4))
 
+    def read_int64(self) -> int:
+        return int.from_bytes(self.read(8))
+
     def read_list(self):
         return self.read_string().split(",")
 
@@ -24,10 +27,13 @@ class Buffer(io.BytesIO):
         return self.read(n)
 
     def read_mpint(self):
-        return int.from_bytes(self.read_binary(),"big",signed=True)
+        return int.from_bytes(self.read_binary(), "big", signed=True)
 
     def write_int(self, i: int):
         self.write(int.to_bytes(i, 4))
+
+    def write_int64(self, i: int):
+        self.write(int.to_bytes(i, 8))
 
     def write_string(self, s: str):
         self.write_int(len(s.encode()))
@@ -45,10 +51,6 @@ class Buffer(io.BytesIO):
 
     def write_mpint(self, i: int):
         self.write(util.to_mpint(i))
-        # s = round((i.bit_length()+7)/8)
-        # b = int.to_bytes(i,s,signed=True)
-        # assert len(b) == s, "mpint error len(b): %s != s:%s "%(len(b),s)
-        # self.write_binary(b)
 
     def write_list(self, l: list[str]):
         self.write_string(",".join(l))
