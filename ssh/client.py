@@ -247,6 +247,8 @@ class SSHClient:
         if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
             raise TypeError("service request timeout auth failed")
         pk = key.RSAKey.from_file(key_path)
+        if not isinstance(pk.pk, rsa.RSAPrivateKey):
+            raise TypeError("Invalid private key. Only RSA keys are supported")
         signature = self.compute_auth_signature(username, pk)
         signature = bytes(SSHSignature(algo=self.server_host_key_algo, sig=signature))
 

@@ -52,10 +52,10 @@ class RSAKey:
     def from_file(cls, path, password=None):
         data = open(path, "rb").read()  # file closed.
         # shortcut
-        if b"RSA" in data:
-            pk = serialization.load_pem_private_key(data, password)
-        elif b"OPENSSH" in data:
+        if b"OPENSSH" in data:
             pk = serialization.load_ssh_private_key(data, password)
+        else:
+            pk = serialization.load_pem_private_key(data, password)
         return cls(pk=pk, pub=pk.public_key())
 
     def __bytes__(self):
