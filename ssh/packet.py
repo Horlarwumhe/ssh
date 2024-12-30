@@ -17,7 +17,7 @@ logger = logging.getLogger("ssh")
 def code_to_desc(code):
     try:
         return msg.HANDLERS.get(code).desc
-    except Exception as e:
+    except Exception:
         return str(code)
 
 
@@ -45,16 +45,15 @@ class Packet:
         padding_length = block_size - ((4 + 1 + len(payload)) % block_size)
         if padding_length < 4:
             padding_length += block_size
-        padding = os.urandom(padding_length)
-        packet_length = 1 + len(payload) + len(padding)  # 1 is len(len(padding))
+        packet_length = 1 + len(payload) + padding_length  # 1 is len(len(padding))
         total_size = 4 + packet_length
         min_size = max(block_size, cls.min_size)
         if total_size < min_size:
             add = min_size - total_size
-            padding += os.urandom(add)
             packet_length += add
             total_size += add
             padding_length += add
+        padding = os.urandom(padding_length)
         buf = Buffer()
         buf.write_int(packet_length)
         buf.write_byte(int.to_bytes(padding_length, 1))
@@ -178,9 +177,9 @@ class Connection:
             )
             mac = b""
             if self.encrypted:
-                mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + bytes(p))
-                p = self.client_enc.encrypt(bytes(data))
-            await self.sock.send(bytes(p) + mac)
+                mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + data)
+                data = self.client_enc.encrypt(data)
+            await self.sock.send(data + mac)
             self.seq_no += 1 & 0xFFFFFFFF
 
     async def send(self, data):
