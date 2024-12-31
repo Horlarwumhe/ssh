@@ -129,10 +129,55 @@ class Channel:
             if self.lock.locked():
                 await self.lock.release()
 
+    async def recv_stderr(self,size: int):
+
+        await self.lock2.acquire()
+        try:
+            data = self.ext_buf.read(size)
+            if data == b"" and self.is_active():
+                self.ext_data_event.clear()
+                # release lock so writer wont block
+                await self.lock2.release()
+                await self.ext_data_event.wait()
+                return self.ext_buf.read(size)
+            else:
+                return data
+        finally:
+            if self.lock2.locked():
+                await self.lock2.release()
+
+    async def stderr(self, n=-1,block=False):
+        """
+        Read data from the stderr
+        """
+        if not block:
+            return await self.recv_stderr(n)
+        data = b""
+        while True:
+            d = await self.recv_stderr(n)
+            data += d
+            if d == b"":
+                break
+        return data
+
+    async def stdout(self, n=-1,block=False):
+        """
+        Read data from the stdout
+        """
+        if not block:
+            return await self.recv(n)
+        data = b""
+        while True:
+            d = await self.recv(n)
+            data += d
+            if d == b"":
+                break
+        return data
+
     async def set_data(self, data):
         async with self.lock:
             pos = self.buf.tell()
-            self.buf.seek(0,os.SEEK_END)
+            self.buf.seek(0, os.SEEK_END)
             self.buf.write(data)
             self.buf.seek(pos)
             await self.data_event.set()
@@ -140,29 +185,11 @@ class Channel:
     async def set_ext_data(self, data):
         async with self.lock2:
             pos = self.ext_buf.tell()
-            self.ext_buf.seek(0,os.SEEK_END)
+            self.ext_buf.seek(0, os.SEEK_END)
             self.ext_buf.write(data)
             self.ext_buf.seek(pos)
             await self.ext_data_event.set()
 
-    async def stderr(self, n=-1):
-        await self.lock2.acquire()
-        try:
-            data = self.ext_buf.read(n)
-            if data == b"" and self.is_active():
-                self.ext_data_event.clear()
-                # release lock so writer wont block
-                await self.lock2.release()
-                await self.ext_data_event.wait()
-                return self.ext_buf.read(n)
-            else:
-                return data
-        finally:
-            if self.lock2.locked():
-                await self.lock2.release()
-
-    async def stdout(self, n=-1):
-        return await self.recv(n)
     def has_data(self):
         return self.data_event.is_set()
     

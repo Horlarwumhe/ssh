@@ -30,9 +30,9 @@ async def main():
         # or password
         # await s.auth_password("user","pass")
         cmd = await s.run_command("ls /")
-        # read 1024 bytes from stdout
+        #read from stdout
         print((await cmd.stdout()).decode())
-        # read 1024 bytes from stderr
+        # read from stderr
         print((await cmd.stderr()).decode())
         # print exit code
         print(cmd.exit_code)
@@ -46,7 +46,7 @@ async def main():
                 break
             print(d.decode())
         print(cmd.exit_code)
-        # read 1024 bytes from stderr
+        # read from stderr
         print((await cmd.stderr()).decode())
 curio.run(main)
 ```
@@ -61,6 +61,14 @@ async def main():
         await s.auth_password("username","password")
 ```
 
+##### stdout/stderr
+
+"The `stdout` and `stderr` functions block until at least one byte of data is available or the process exits. Use `block=True` to wait until all data is read (process completion)."
+
+```py
+await cmd.stdout(block=True)
+# Waits until the process exits and returns all the data at once
+```
 ### Open port forward
 
 This is similar to 
