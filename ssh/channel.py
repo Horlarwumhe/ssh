@@ -145,7 +145,7 @@ class Channel:
             self.ext_buf.seek(pos)
             await self.ext_data_event.set()
 
-    async def stderr(self, n):
+    async def stderr(self, n=-1):
         await self.lock2.acquire()
         try:
             data = self.ext_buf.read(n)
@@ -161,7 +161,7 @@ class Channel:
             if self.lock2.locked():
                 await self.lock2.release()
 
-    async def stdout(self, n):
+    async def stdout(self, n=-1):
         return await self.recv(n)
     def has_data(self):
         return self.data_event.is_set()
