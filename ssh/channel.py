@@ -1,15 +1,12 @@
 import io
-import itertools
 import os
-
+from ssh import util
 import curio
 
-import ssh.client
 
 from . import message as MSG
 
 import logging
-
 
 class Channel:
     ids_pool = iter(range(1, 2 << 31))
@@ -36,6 +33,7 @@ class Channel:
     def next_id(cls):
         return next(cls.ids_pool)
 
+    @util.check_closed
     async def run_command(self, cmd):
         if isinstance(cmd, (list, tuple)):
             cmd = " ".join(cmd)
@@ -49,6 +47,7 @@ class Channel:
         await self.request_event.wait()
         self.is_exec = True
 
+    @util.check_closed
     async def request_tty(
         self, term="vt100", width=80, height=24, width_pixels=0, height_pixels=0
     ):
@@ -69,6 +68,7 @@ class Channel:
             raise RuntimeError("Failed to request for tty")
         self.request_success = None
 
+    @util.check_closed
     async def request_shell(self):
         self.request_event.clear()
         msg = MSG.SSHMsgChannelRequest(
@@ -80,6 +80,7 @@ class Channel:
             raise RuntimeError("Failed to request for shell")
         self.request_success = None
 
+    @util.check_closed
     async def request_subsystem(self, name):
         """
         Request a subsystem for the channel
@@ -100,9 +101,8 @@ class Channel:
         if name == "sftp":
             self.sftp = True
 
+    @util.check_closed
     async def send(self, data: str | bytes):
-        if self.closed:
-            return
         m = MSG.SSHMsgChannelData(recipient_channel=self.remote_id, data=data)
         await self.client.send_message(m)
 

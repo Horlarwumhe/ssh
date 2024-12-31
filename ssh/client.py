@@ -68,6 +68,7 @@ class SSHClient:
         self.auth_event = curio.Event()
         self.authenticated = False
         self.server_closed = False
+        self.closed = self.server_closed = False
         self.close_reason = ""
 
         self.message_handlers = {
@@ -241,6 +242,7 @@ class SSHClient:
         await self.do_auth()
         # self.wait_for_message()
 
+    @util.check_closed
     async def auth_public_key(self, username, key_path=""):
         svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
@@ -312,6 +314,7 @@ class SSHClient:
             raise
         return True
 
+    @util.check_closed
     async def open_session(self) -> Channel:
         chid = Channel.next_id()
         m = SSHMsgChannelOpen(
@@ -333,6 +336,7 @@ class SSHClient:
             raise TypeError(ch.err)
         return ch
 
+    @util.check_closed
     async def run_command(self, cmd):
         ch = await self.open_session()
         await ch.run_command(cmd)
@@ -351,6 +355,7 @@ class SSHClient:
         )
         return await self.do_open_channel(m)
 
+    @util.check_closed
     async def open_sftp(self):
         """
         Open a new sftp session
@@ -371,6 +376,7 @@ class SSHClient:
             except Exception:
                 pass
         await self.sock.close()
+        self.closed = True
 
     async def clean_up_tasks(self):
         while True:
