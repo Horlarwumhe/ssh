@@ -153,6 +153,7 @@ class Channel:
         if not block:
             return await self.recv_stderr(n)
         data = b""
+        n = -1 # n should be -1 to read all data
         while True:
             d = await self.recv_stderr(n)
             data += d
@@ -167,6 +168,7 @@ class Channel:
         if not block:
             return await self.recv(n)
         data = b""
+        n = -1 # n should be -1 to read all data
         while True:
             d = await self.recv(n)
             data += d
