@@ -179,7 +179,7 @@ class Connection:
             if self.encrypted:
                 mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + data)
                 data = self.client_enc.encrypt(data)
-            await self.sock.send(data + mac)
+            await self.sock.sendall(data + mac)
             self.seq_no += 1 & 0xFFFFFFFF
 
     async def send(self, data):
