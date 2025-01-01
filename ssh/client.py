@@ -45,6 +45,8 @@ class SSHClient:
     available_server_host_key_algo: dict[str, callable] = {
         "rsa-sha2-512": key.RSAKey,
         "rsa-sha2-256": key.RSAKey,
+        "ssh-ed25519": key.Ed25519Key,
+        
     }
 
     def __init__(self) -> None:
@@ -248,18 +250,16 @@ class SSHClient:
         await self.send_message(svc)
         if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
             raise TypeError("service request timeout auth failed")
-        pk = key.RSAKey.from_file(key_path)
-        if not isinstance(pk.pk, rsa.RSAPrivateKey):
-            raise TypeError("Invalid private key. Only RSA keys are supported")
+        pk = key.Key.from_file(key_path)
         signature = self.compute_auth_signature(username, pk)
-        signature = bytes(SSHSignature(algo=self.server_host_key_algo, sig=signature))
+        signature = bytes(SSHSignature(algo=pk.algo_name, sig=signature))
 
         auth = SSHMsgUserauthRequest(
             username=username,
             service_name="ssh-connection",
             method_name="publickey",
             flag=True,
-            pub_key_algo=self.server_host_key_algo,
+            pub_key_algo=pk.algo_name,
             pub_key=bytes(pk),
             signatrue=signature,
         )
@@ -286,7 +286,7 @@ class SSHClient:
             "ssh-connection",
             "publickey",
             True,
-            self.server_host_key_algo,
+            pk.algo_name,
             bytes(pk),
         ):
             if isinstance(x, bool):
@@ -295,7 +295,7 @@ class SSHClient:
                 b.write_binary(x)
             else:
                 b.write_string(x)
-        return pk.sign(b.getvalue(), self.server_host_key_algo)
+        return pk.sign(b.getvalue(), pk.algo_name)
 
     def _log(self, level, message):
         self.logger.log(level, message)
