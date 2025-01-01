@@ -1,4 +1,4 @@
-
+import functools
 def to_mpint(value: int) -> bytes:
 
     l = value.bit_length()
@@ -8,6 +8,7 @@ def to_mpint(value: int) -> bytes:
     return l.to_bytes(4, 'big') + value.to_bytes(l, 'big', signed=True)
 
 def check_closed(func):
+    @functools.wraps(func)
     async def wrapper(self,*args,**kwargs):
         if self.closed:
             name = "Channel" if "Channel" in str(self) else "Connection"
