@@ -2,7 +2,6 @@ import logging
 import os
 from dataclasses import dataclass
 
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PrivateKey,
     X25519PublicKey,
@@ -36,22 +35,41 @@ class DHKex:
 
     async def start(self) -> KexResult:
         # https://datatracker.ietf.org/doc/html/rfc4253#section-8
-        log.log(logging.INFO, f"Using {self.name} key_size {self.key_size}")
+        log.log(logging.INFO, f"Using {self.name} with key size {self.key_size}")
+        x, e = self.generate_key_pair()
+        await self.send_kex_init(e)
+        resp = await self.receive_kex_reply()
+        K = self.compute_shared_secret(resp.f, x)
+        H = self.compute_signature_hash(resp.host_key, e, resp.f, K)
+        self.verify_server_signature(resp.host_key, resp.sig, H)
+        return KexResult(K=K, H=H)
+
+
+    def generate_key_pair(self) -> tuple[int, int]:
         q = (self.P - 1) // 2
         x = int.from_bytes(os.urandom(q.bit_length() // 8))
-        assert x < q, "error x < (P-1)//2 %d < %d" % (x, q)
+        assert x < q, "error: x < (P-1)//2 %d > %d"%(x, q)
         e = pow(self.G, x, self.P)
+        return x, e
+
+
+    async def send_kex_init(self, e: int) -> None:
         req = msg.SSHMsgKexDHInit(e=e)
         await self.client.sock.send_packet(bytes(req))
+
+
+    async def receive_kex_reply(self) -> msg.SSHMessageKexDHReply:
         packet = await self.client.sock.read_packet()
         m = Buffer(packet.payload)
-        if packet.opcode != msg.SSHMessageKexDHReply.opcode:
-            raise
         resp = msg.SSHMessageKexDHReply.parse(m)
-        server_host_key = resp.host_key
-        f = resp.f
-        sig = resp.sig
-        K = pow(f, x, self.P)
+        return resp
+
+
+    def compute_shared_secret(self, f: int, x: int) -> int:
+        return pow(f, x, self.P)
+
+
+    def compute_signature_hash(self, server_host_key: bytes, e: int, f: int, K: int) -> bytes:
         s = bytes(
             msg.DHHashSig(
                 client_version=self.client.version,
@@ -64,16 +82,17 @@ class DHKex:
                 K=K,
             )
         )
-        H = type(self).hash_algo(s)
+        return type(self).hash_algo(s)
+
+
+    def verify_server_signature(self, server_host_key: bytes, sig: bytes, H: bytes) -> None:
         server_key = self.client.available_server_host_key_algo[
             self.client.server_host_key_algo
         ].from_buffer(Buffer(server_host_key))
+        
         buf = Buffer(sig)
         hash_name = buf.read_string()
-        assert server_key.verify(
-            buf.read_binary(), H, hash_name
-        ), "Signature verification failed"
-        return KexResult(K=K, H=H)
+        assert server_key.verify(buf.read_binary(), H, hash_name), "Signature verification failed"
 
 
 class DHGroup1SHA1(DHKex):
@@ -114,7 +133,6 @@ class DHGroup18SHA512(DHKex):
     hash_algo = sha512
 
 
-
 class Curve25519:
     name: str = "curve25519-sha256"
     hash_algo: callable = sha256
@@ -124,38 +142,51 @@ class Curve25519:
 
     async def start(self):
         # https://datatracker.ietf.org/doc/html/rfc5656#section-4
-        log.log(logging.INFO, f"Using {self.name}  key exchnage")
+        log.log(logging.INFO, f"Using {self.name} key exchange")
+        pk, pub = self.generate_key_pair()
+        await self.send_kex_init(pub)
+        res = await self.receive_kex_reply()
+        K = self.compute_shared_secret(pk, res.pub_key)
+        H = self.compute_signature_hash(res.host_key, pub, res.pub_key, K)
+        self.verify_server_signature(res.host_key, res.sig, H)
+        return KexResult(K=K, H=H)
+
+    def generate_key_pair(self) -> tuple[X25519PrivateKey, X25519PublicKey]:
         pk = X25519PrivateKey.generate()
         pub = pk.public_key().public_bytes_raw()
+        return pk, pub
+
+    async def send_kex_init(self, pub: bytes):
         req = msg.SSHMsgKexECDHInit(pub_key=pub)
         await self.client.send_message(req)
+
+    async def receive_kex_reply(self) -> msg.SSHMsgKexECDHReply:
         packet = await self.client.sock.read_packet()
-        res = msg.SSHMsgKexECDHReply.parse(Buffer(packet.payload))
-        sig = res.sig
-        server_pub = X25519PublicKey.from_public_bytes(res.pub_key)
-        K = int.from_bytes(pk.exchange(server_pub))
-        H = type(self).hash_algo(
-            bytes(
-                msg.ECDHHashSig(
-                    client_version=self.client.version,
-                    server_version=self.client.remote_version,
-                    client_kex_init=bytes(self.client.kex_init),
-                    server_kex_init=bytes(self.client.server_kex_init),
-                    server_host_key=res.host_key,
-                    client_pub_key=pub,
-                    server_pub_key=res.pub_key,
-                    K=K,
-                )
+        return msg.SSHMsgKexECDHReply.parse(Buffer(packet.payload))
+
+    def compute_shared_secret(self, pk:X25519PrivateKey, server_pub_key: bytes) -> int:
+        server_pub = X25519PublicKey.from_public_bytes(server_pub_key)
+        return int.from_bytes(pk.exchange(server_pub))
+
+    def compute_signature_hash(self, server_host_key:bytes, client_pub_key:bytes, server_pub_key:bytes, K:int) -> bytes:
+        payload = bytes(
+            msg.ECDHHashSig(
+                client_version=self.client.version,
+                server_version=self.client.remote_version,
+                client_kex_init=bytes(self.client.kex_init),
+                server_kex_init=bytes(self.client.server_kex_init),
+                server_host_key=server_host_key,
+                client_pub_key=client_pub_key,
+                server_pub_key=server_pub_key,
+                K=K,
             )
         )
+        return type(self).hash_algo(payload)
+
+    def verify_server_signature(self, server_host_key:bytes, sig:bytes, H:bytes):
         server_key = self.client.available_server_host_key_algo[
             self.client.server_host_key_algo
-        ].from_buffer(Buffer(res.host_key))
-        sig = Buffer(sig)
-        hash_name = sig.read_string()
-        assert server_key.verify(
-            sig.read_binary(), H, hash_name
-        ), "Signature verification failed"
-        return KexResult(K=K,H=H)
-
-
+        ].from_buffer(Buffer(server_host_key))
+        sig_buf = Buffer(sig)
+        hash_name = sig_buf.read_string()
+        assert server_key.verify(sig_buf.read_binary(), H, hash_name), "Signature verification failed"
