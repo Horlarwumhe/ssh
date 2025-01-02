@@ -24,6 +24,7 @@ class Channel:
         self.exit = None
         self.data_event = curio.Event()
         self.ext_data_event = curio.Event()
+        self.exit_event = curio.Event()
         self.is_exec = False
         self.request_event = curio.Event()
         self.request_success = None
@@ -176,6 +177,16 @@ class Channel:
                 break
         return data
 
+    async def wait(self):
+        """
+        If the channel is a command, wait for the command to finish. similar to wait in subprocess
+        """
+        if not self.is_exec:
+            return
+        await self.exit_event.wait()
+        return self.exit_code
+    
+
     async def set_data(self, data):
         async with self.lock:
             pos = self.buf.tell()
@@ -210,6 +221,10 @@ class Channel:
 
     def set_exit_code(self, exit):
         self.exit = exit
+
+    async def set_exit_event(self,code):
+        self.exit = code
+        await self.exit_event.set()
 
     @property
     def exit_code(self):

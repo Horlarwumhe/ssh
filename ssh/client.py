@@ -430,6 +430,7 @@ class SSHClient:
             if m.type != "exit-status":
                 self.logger.info("Unknow chnannel request type %s", m.type)
                 return
+            await channel.set_exit_event(m.exit_status)
             channel.set_exit_code(m.exit_status)
 
     async def handle_channel_data(self, m: SSHMsgChannelData):
