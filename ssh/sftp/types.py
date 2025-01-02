@@ -218,14 +218,15 @@ class SSHFXPFSTAT:
 class SSHFXPSETSTAT:
     code = 9
     id: int
+    path: str
     attrs: dict
 
     def __bytes__(self):
         b = Buffer()
         b.write_byte(int.to_bytes(self.code, 1))
         b.write_int(self.id)
-        b.write_attrs(self.attrs)
-        d = len(b.getvalue())
+        b.write_string(self.path)
+        b.write_byte(bytes(self.attrs))
         return b.getvalue()
 
 

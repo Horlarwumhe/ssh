@@ -109,7 +109,33 @@ class SFTP:
     async def fstat(self, handle: bytes):
         r = SSHFXPFSTAT(id=rand_id(), handle=handle)
         return await self.file_stat(r)
+    
 
+    async def chmod(self, path, mode):
+        """
+        Change the permissions of a file on the remote server.
+        :param path: the path of the file to change
+        :param mode: the new permissions
+        """
+        r = SSHFXPSETSTAT(id=rand_id(), path=path, attrs=SFTPAttributes(permissions=mode))
+        await self.send(r)
+        resp = await self.get_response(r.id)
+        if resp.error != SSH_FXF_STATUS.OK:
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+
+    async def chown(self, path, uid, gid):
+        """
+        Change the owner of a file on the remote server.
+        :param path: the path of the file to change
+        :param uid: the new owner's user id
+        :param gid: the new owner's group id
+        """
+        r = SSHFXPSETSTAT(id=rand_id(), path=path, attrs=SFTPAttributes(uid=uid, gid=gid))
+        await self.send(r)
+        resp = await self.get_response(r.id)
+        if resp.error != SSH_FXF_STATUS.OK:
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+    
     async def file_stat(self, msg):
         await self.send(msg)
         resp = await self.get_response(msg.id)
