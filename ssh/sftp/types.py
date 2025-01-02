@@ -27,8 +27,9 @@ class SFTPAttributes:
         permissions = b.read_int() if flags & SSH_FILEXFER_ATTRS.PERMISSIONS else None
         atime = b.read_int() if flags & SSH_FILEXFER_ATTRS.ACMODTIME else None
         mtime = b.read_int() if flags & SSH_FILEXFER_ATTRS.ACMODTIME else None
-        extended = {}
+        extended = None
         if flags & SSH_FILEXFER_ATTRS.EXTENDED:
+            extended = {}
             extended_count = b.read_int()
             for _ in range(extended_count):
                 extended[b.read_string()] = b.read_string()
