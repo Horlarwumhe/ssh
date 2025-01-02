@@ -90,7 +90,10 @@ class SFTP:
         paths = []
         if isinstance(resp, SSHFXPNAME):
             for name in resp.names:
-                paths.append(name["filename"])
+                p = name["filename"]
+                if p in (".", ".."):
+                    continue
+                paths.append(p)
             return paths
         else:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
