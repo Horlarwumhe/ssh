@@ -220,10 +220,10 @@ class SSHClient:
         packet = await self.sock.read_packet()
         self.logger.log(DEBUG, "New keys: %s", packet.opcode)
 
+    @util.check_closed
     async def send_message(self, msg: SSHMessage):
         await self.sock.send_packet(bytes(msg))
 
-    @util.check_closed
     async def auth_password(self, username, password=""):
         """
         Authenticate using password
@@ -245,7 +245,6 @@ class SSHClient:
         await self.do_auth()
         # self.wait_for_message()
 
-    @util.check_closed
     async def auth_public_key(self, username, key_path=""):
         """
         Authenticate using public key
@@ -272,6 +271,7 @@ class SSHClient:
         await self.send_message(auth)
         await self.do_auth()
 
+    @util.timeout
     async def do_auth(self):
         if self.close_event.is_set():
             raise RuntimeError("server closed connection (%s)" % self.close_reason)
@@ -320,7 +320,6 @@ class SSHClient:
             raise
         return True
 
-    @util.check_closed
     async def open_session(self) -> Channel:
         """
         Open a new session
@@ -334,6 +333,7 @@ class SSHClient:
         )
         return await self.do_open_channel(m)
 
+    @util.timeout
     async def do_open_channel(self, msg):
         await self.send_message(msg)
         ev = curio.Event()
@@ -345,7 +345,6 @@ class SSHClient:
             raise TypeError(ch.err)
         return ch
 
-    @util.check_closed
     async def run_command(self, cmd):
         """
         Run a command on the remote server
@@ -355,7 +354,6 @@ class SSHClient:
         await ch.run_command(cmd)
         return ch
 
-    @util.check_closed
     async def open_port_forward(self, dest_addr, dest_port, src_addr, src_port):
         """
         Open a port forward
@@ -376,7 +374,6 @@ class SSHClient:
         )
         return await self.do_open_channel(m)
 
-    @util.check_closed
     async def open_sftp(self):
         """
         Open a new sftp session
@@ -386,7 +383,7 @@ class SSHClient:
         s = SFTP(ch)
         await s.init()
         return s
-    
+
     async def close(self):
         tasks = self.tasks.copy()
         for task in tasks:

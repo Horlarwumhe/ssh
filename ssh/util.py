@@ -16,3 +16,13 @@ def check_closed(func):
         return await func(self,*args,**kwargs)
     return wrapper
 
+def timeout(func):
+    @functools.wraps(func)
+    async def wrapper(self,*args,**kwargs):
+        if self.timeout is not None:
+            try:
+                return await curio.timeout_after(self.timeout,func(self,*args,**kwargs))
+            except curio.TaskTimeout:
+                raise TimeoutError("Operation timed out") from None
+        return await func(self,*args,**kwargs)
+    return wrapper

@@ -29,12 +29,13 @@ class Channel:
         self.request_event = curio.Event()
         self.request_success = None
         self.close_sent = False
+        self.timeout = self.client.timeout
 
     @classmethod
     def next_id(cls):
         return next(cls.ids_pool)
 
-    @util.check_closed
+    @util.timeout
     async def run_command(self, cmd):
         if isinstance(cmd, (list, tuple)):
             cmd = " ".join(cmd)
@@ -48,7 +49,7 @@ class Channel:
         await self.request_event.wait()
         self.is_exec = True
 
-    @util.check_closed
+    @util.timeout
     async def request_tty(
         self, term="vt100", width=80, height=24, width_pixels=0, height_pixels=0
     ):
@@ -72,7 +73,7 @@ class Channel:
             raise RuntimeError("Failed to request for tty")
         self.request_success = None
 
-    @util.check_closed
+    @util.timeout
     async def request_shell(self):
         """
         Request a shell for the channel
@@ -87,7 +88,7 @@ class Channel:
             raise RuntimeError("Failed to request for shell")
         self.request_success = None
 
-    @util.check_closed
+    @util.timeout
     async def request_subsystem(self, name):
         """
         Request a subsystem for the channel
