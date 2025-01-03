@@ -55,7 +55,7 @@ class Channel:
 
     @util.timeout
     async def request_tty(
-        self, term="vt100", width=80, height=24, width_pixels=0, height_pixels=0
+        self, term="xterm-256color", width=80, height=24, width_pixels=0, height_pixels=0
     ):
         """
         Request a tty for the channel
