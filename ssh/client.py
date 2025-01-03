@@ -187,11 +187,13 @@ class SSHClient:
     def set_ciphers(self, K, H):
         # K || H || "A" || session_id)
         # https://datatracker.ietf.org/doc/html/rfc4253#section-7.2
-        def compute_key(x,size):
-             key = hash_algo(K + H + x.encode() + self.session_id)[:size]
-             while len(key) < size:
+        def compute_key(x, size):
+            key = hash_algo(K + H + x.encode() + self.session_id)[:size]
+            while len(key) < size:
                 key += hash_algo(K + H + key)
-             return key[:size]
+            assert len(key[:size]) == size, "key size != %s"%size
+            return key[:size]
+
         K = util.to_mpint(K)
         hash_algo = self.available_kex_algo[self.kex_algo].hash_algo
         encryptor = self.available_encryption_algo[self.encryption_algo]
@@ -211,18 +213,6 @@ class SSHClient:
             encryptor(client_to_server_key, client_to_server_iv),
             encryptor(server_to_client_key, server_to_client_iv),
         )
-        assert len(client_to_server_iv) == iv_size, (
-            "(iv size) %s != cipher iv_size (%s)" % (len(client_to_server_iv), iv_size)
-        )
-        assert len(client_to_server_key) == key_size, (
-            "(key size) %s != cipher key_size (%s)"
-            % (len(client_to_server_key), key_size)
-        )
-        if mac_algo:
-            assert len(client_to_server_mac) == mac_size, (
-                "(mac key size) %s != mac key_size (%s)"
-                % (len(client_to_server_mac), mac_size)
-            )
 
     async def end_kex_init(self):
         req = SSHMsgNewKeys()
