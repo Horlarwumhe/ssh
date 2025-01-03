@@ -89,6 +89,11 @@ class SSHClient:
         }
 
     async def connect(self, host, port):
+        """
+        Connect to the server
+        :param host: hostname
+        :param port: port
+        """
         await self.sock.connect(host, port)
         while True:
             line = await self.sock.readline()
@@ -228,7 +233,13 @@ class SSHClient:
     async def send_message(self, msg: SSHMessage):
         await self.sock.send_packet(bytes(msg))
 
+    @util.check_closed
     async def auth_password(self, username, password=""):
+        """
+        Authenticate using password
+        :param username: username
+        :param password: password
+        """
         svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
         if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
@@ -246,6 +257,11 @@ class SSHClient:
 
     @util.check_closed
     async def auth_public_key(self, username, key_path=""):
+        """
+        Authenticate using public key
+        :param username: username
+        :param key_path: path to the private key
+        """
         svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
         if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
@@ -316,6 +332,9 @@ class SSHClient:
 
     @util.check_closed
     async def open_session(self) -> Channel:
+        """
+        Open a new session
+        """
         chid = Channel.next_id()
         m = SSHMsgChannelOpen(
             type="session",
@@ -338,11 +357,23 @@ class SSHClient:
 
     @util.check_closed
     async def run_command(self, cmd):
+        """
+        Run a command on the remote server
+        :param cmd: command to run
+        """
         ch = await self.open_session()
         await ch.run_command(cmd)
         return ch
 
+    @util.check_closed
     async def open_port_forward(self, dest_addr, dest_port, src_addr, src_port):
+        """
+        Open a port forward
+        :param dest_addr: destination address
+        :param dest_port: destination port
+        :param src_addr: source address
+        :param src_port: source port
+        """
         m = SSHMsgChannelOpen(
             type="direct-tcpip",
             sender_channel=Channel.next_id(),

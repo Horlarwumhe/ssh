@@ -52,6 +52,9 @@ class Channel:
     async def request_tty(
         self, term="vt100", width=80, height=24, width_pixels=0, height_pixels=0
     ):
+        """
+        Request a tty for the channel
+        """
         self.request_event.clear()
         msg = MSG.SSHMsgChannelRequest(
             recipient_channel=self.remote_id,
@@ -71,6 +74,9 @@ class Channel:
 
     @util.check_closed
     async def request_shell(self):
+        """
+        Request a shell for the channel
+        """
         self.request_event.clear()
         msg = MSG.SSHMsgChannelRequest(
             recipient_channel=self.remote_id, type="shell", want_reply=True
@@ -104,6 +110,9 @@ class Channel:
 
     @util.check_closed
     async def send(self, data: str | bytes):
+        """
+        Write data to the channel
+        """
         m = MSG.SSHMsgChannelData(recipient_channel=self.remote_id, data=data)
         await self.client.send_message(m)
 
@@ -115,6 +124,9 @@ class Channel:
         return True
 
     async def recv(self, size: int):
+        """
+        Read data from the channel
+        """
         await self.lock.acquire()
         try:
             data = self.buf.read(size)
@@ -204,9 +216,15 @@ class Channel:
             await self.ext_data_event.set()
 
     def has_data(self):
+        """
+        Check if there is data to read
+        """
         return self.data_event.is_set()
-    
+
     async def close(self):
+        """
+        Close the channel
+        """
         self.closed = True
         if not self.close_sent:
             await self.client.send_message(MSG.SSHMsgChannelClose(recipient_channel=self.remote_id))
