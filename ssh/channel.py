@@ -233,10 +233,10 @@ class Channel:
         """
         Close the channel
         """
-        self.closed = True
         if not self.close_sent:
-            await self.client.send_message(MSG.SSHMsgChannelClose(recipient_channel=self.remote_id))
+            await self.send_message(MSG.SSHMsgChannelClose(recipient_channel=self.remote_id))
             self.close_sent = True
+        self.closed = True
         await self.data_event.set()
         await self.ext_data_event.set()
 
