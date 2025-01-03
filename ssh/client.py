@@ -413,7 +413,10 @@ class SSHClient:
         while True:
             for task in self.tasks.copy():
                 if task.terminated:
-                    await task.join()
+                    try:
+                        await task.join()
+                    except curio.errors.TaskError:
+                        pass
                     self.tasks.discard(task)
             await curio.sleep(5)
 
