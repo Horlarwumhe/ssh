@@ -42,11 +42,15 @@ class Channel:
         if self.type != "session":
             # TODO
             pass
+        self.request_event.clear()
         msg = MSG.SSHMsgChannelRequest(
             recipient_channel=self.remote_id, type="exec", want_reply=True, command=cmd
         )
-        await self.client.send_message(msg)
+        await self.send_message(msg)
         await self.request_event.wait()
+        if not self.request_success:
+            raise RuntimeError("Failed to run command")
+        self.request_success = None
         self.is_exec = True
 
     @util.timeout
