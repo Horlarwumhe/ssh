@@ -67,7 +67,7 @@ class Channel:
             heigth_pixel=height_pixels,
             term_env_var=term,
         )
-        await self.client.send_message(msg)
+        await self.send_message(msg)
         await self.request_event.wait()
         if not self.request_success:
             raise RuntimeError("Failed to request for tty")
@@ -82,7 +82,7 @@ class Channel:
         msg = MSG.SSHMsgChannelRequest(
             recipient_channel=self.remote_id, type="shell", want_reply=True
         )
-        await self.client.send_message(msg)
+        await self.send_message(msg)
         await self.request_event.wait()
         if not self.request_success:
             raise RuntimeError("Failed to request for shell")
@@ -101,14 +101,13 @@ class Channel:
             want_reply=True,
             subsystem_name=name,
         )
-        await self.client.send_message(msg)
+        await self.send_message(msg)
         await self.request_event.wait()
         if not self.request_success:
             raise RuntimeError("Failed to open subsystem")
         self.request_success = None
         if name == "sftp":
             self.sftp = True
-
     @util.check_closed
     async def send(self, data: str | bytes):
         """
@@ -116,6 +115,10 @@ class Channel:
         """
         m = MSG.SSHMsgChannelData(recipient_channel=self.remote_id, data=data)
         await self.client.send_message(m)
+
+    @util.check_closed
+    async def send_message(self, msg):
+        await self.client.send_message(msg)
 
     def is_active(self):
         if self.eof or self.closed:
