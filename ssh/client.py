@@ -72,6 +72,7 @@ class SSHClient:
         self.server_closed = False
         self.closed = self.server_closed = False
         self.close_reason = ""
+        self.timeout = 5
 
         self.message_handlers = {
             SSHMsgDisconnect.opcode: self.handle_message_disconnect,
