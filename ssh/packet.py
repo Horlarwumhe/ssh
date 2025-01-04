@@ -39,10 +39,13 @@ class Packet:
         self.opcode = payload[0] if payload else 0
 
     @classmethod
-    def build(cls, payload: bytes, block_size=8) -> "Packet":
+    def build(cls, payload: bytes, block_size=8,etm=False) -> "Packet":
         # https://datatracker.ietf.org/doc/html/rfc4253#section-6
         block_size = max(block_size, cls.block_size)
-        padding_length = block_size - ((4 + 1 + len(payload)) % block_size)
+        # etm mode, 4 bytes to make up for packet length which is not included in encrypted data
+        # encrypted separately 
+        addlen =  4 if etm else 0
+        padding_length = (addlen + block_size) - ((4 + 1 + len(payload)) % block_size)
         if padding_length < 4:
             padding_length += block_size
         packet_length = 1 + len(payload) + padding_length  # 1 is len(len(padding))
@@ -59,7 +62,7 @@ class Packet:
         buf.write_byte(int.to_bytes(padding_length, 1))
         buf.write_byte(payload)
         buf.write_byte(padding)
-        assert total_size % block_size == 0
+        assert total_size % block_size == addlen ,f"{total_size} % {block_size} != {addlen}"
         return Packet(
             data=buf.getvalue(),
             packet_length=packet_length,
