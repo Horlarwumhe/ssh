@@ -155,8 +155,7 @@ class Channel:
             if self.lock.locked():
                 await self.lock.release()
 
-    async def recv_stderr(self,size: int):
-
+    async def recv_stderr(self, size: int):
         await self.lock2.acquire()
         try:
             data = self.ext_buf.read(size)
@@ -172,14 +171,14 @@ class Channel:
             if self.lock2.locked():
                 await self.lock2.release()
 
-    async def stderr(self, n=-1,block=False):
+    async def stderr(self, n=-1, block=False):
         """
         Read data from the stderr
         """
         if not block:
             return await self.recv_stderr(n)
         data = b""
-        n = -1 # n should be -1 to read all data
+        n = -1  # n should be -1 to read all data
         while True:
             d = await self.recv_stderr(n)
             data += d
@@ -187,14 +186,14 @@ class Channel:
                 break
         return data
 
-    async def stdout(self, n=-1,block=False):
+    async def stdout(self, n=-1, block=False):
         """
         Read data from the stdout
         """
         if not block:
             return await self.recv(n)
         data = b""
-        n = -1 # n should be -1 to read all data
+        n = -1  # n should be -1 to read all data
         while True:
             d = await self.recv(n)
             data += d
@@ -210,7 +209,6 @@ class Channel:
             return
         await self.exit_event.wait()
         return self.exit_code
-    
 
     async def set_data(self, data):
         async with self.lock:
@@ -253,7 +251,7 @@ class Channel:
     def set_exit_code(self, exit):
         self.exit = exit
 
-    async def set_exit_event(self,code):
+    async def set_exit_event(self, code):
         self.exit = code
         await self.exit_event.set()
 

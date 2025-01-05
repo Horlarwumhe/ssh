@@ -6,8 +6,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from ssh.stream import Buffer
 
-class Key:
 
+class Key:
     @classmethod
     def from_file(cls, path, password=None) -> "Key":
         data = open(path, "rb").read()  # file closed.
@@ -75,18 +75,17 @@ class RSAKey(Key):
         b.write_mpint(self.pub.public_numbers().e)
         b.write_mpint(self.pub.public_numbers().n)
         return b.getvalue()
-    
+
     @property
     def algo_name(self):
         return "rsa-sha2-512"
 
 
 class Ed25519Key(Key):
-
-    def __init__(self, pk: Ed25519PrivateKey=None,pub: Ed25519PublicKey=None):
+    def __init__(self, pk: Ed25519PrivateKey = None, pub: Ed25519PublicKey = None):
         self.pk = pk
         self.pub = pub
-    
+
     @classmethod
     def generate(cls):
         key = Ed25519PrivateKey.generate()
@@ -97,25 +96,24 @@ class Ed25519Key(Key):
         assert "ssh-ed25519" in b.read_string()
         return cls(pub=Ed25519PublicKey.from_public_bytes(b.read_binary()))
 
-    def sign(self, message: bytes,algo=None):
+    def sign(self, message: bytes, algo=None):
         # algo is ignored, it is there for compatibility with RSAKey.sign
         return self.pk.sign(message)
-    
-    def verify(self, sig, message,algo=None):
+
+    def verify(self, sig, message, algo=None):
         # algo is ignored, it is there for compatibility with RSAKey.verify
         try:
             self.pub.verify(sig, message)
         except InvalidSignature:
             return False
         return True
-    
+
     def __bytes__(self):
         b = Buffer()
         b.write_string("ssh-ed25519")
         b.write_binary(self.pub.public_bytes_raw())
         return b.getvalue()
-    
+
     @property
     def algo_name(self):
         return "ssh-ed25519"
-    

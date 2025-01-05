@@ -20,7 +20,7 @@ class SFTP:
         self.waiting: dict[int, curio.Event] = {}
         self.responses: dict[int, object] = {}
 
-    async def open(self, file, mode,buffering=False):
+    async def open(self, file, mode, buffering=False):
         """
         Open a file on the remote server.
         :param file: the file to open
@@ -46,7 +46,7 @@ class SFTP:
         resp = await self.get_response(r.id)
         if isinstance(resp, SSHFXPSTATUS):
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, file))
-        return SFTPFile(resp.handle, mode,buffering, self)
+        return SFTPFile(resp.handle, mode, buffering, self)
 
     async def mkdir(self, path, mode=0o777, parents=False):
         """
@@ -109,7 +109,6 @@ class SFTP:
     async def fstat(self, handle: bytes):
         r = SSHFXPFSTAT(id=rand_id(), handle=handle)
         return await self.file_stat(r)
-    
 
     async def chmod(self, path, mode):
         """
@@ -135,7 +134,7 @@ class SFTP:
         resp = await self.get_response(r.id)
         if resp.error != SSH_FXF_STATUS.OK:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
-    
+
     async def file_stat(self, msg):
         await self.send(msg)
         resp = await self.get_response(msg.id)
@@ -144,9 +143,9 @@ class SFTP:
             return os.stat_result(
                 (
                     attrs.permissions,
-                    0, # st_ino not sent by server
-                    0, # st_dev not sent by server
-                    0, # st_nlink not sent by server
+                    0,  # st_ino not sent by server
+                    0,  # st_dev not sent by server
+                    0,  # st_nlink not sent by server
                     attrs.uid,
                     attrs.gid,
                     attrs.size,
@@ -228,7 +227,7 @@ class SFTPFile:
     max_read = 16 * 1024  # 16kb
     buffer_size = io.DEFAULT_BUFFER_SIZE
 
-    def __init__(self, handle, mode,buffering=False, sftp: SFTP | None =None):
+    def __init__(self, handle, mode, buffering=False, sftp: SFTP | None = None):
         self.handle = handle
         self.offset = 0
         self.buffering = buffering
@@ -271,7 +270,7 @@ class SFTPFile:
         if not self.buffering or (self.buffering and self.buffer.tell() >= self.buffer_size):
             await self.do_write()
         return len(data)
-    
+
     @property
     def writable(self):
         return "w" in self.mode or "a" in self.mode
@@ -301,7 +300,7 @@ class SFTPFile:
         Close the file.
         """
         if self.closed:
-            return 
+            return
         await self.flush()
         await self.sftp.send(SSHFXPCLOSE(id=rand_id(), handle=self.handle))
         self.closed = True
@@ -331,7 +330,6 @@ class SFTPFile:
         """
         return self.offset
 
-    
     async def __aenter__(self):
         return self
 

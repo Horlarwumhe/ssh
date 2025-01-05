@@ -44,26 +44,22 @@ class DHKex:
         self.verify_server_signature(resp.host_key, resp.sig, H)
         return KexResult(K=K, H=H)
 
-
     def generate_key_pair(self) -> tuple[int, int]:
         q = (self.P - 1) // 2
         x = int.from_bytes(os.urandom(q.bit_length() // 8))
-        assert x < q, "error: x < (P-1)//2 %d > %d"%(x, q)
+        assert x < q, "error: x < (P-1)//2 %d > %d" % (x, q)
         e = pow(self.G, x, self.P)
         return x, e
-
 
     async def send_kex_init(self, e: int) -> None:
         req = msg.SSHMsgKexDHInit(e=e)
         await self.client.sock.send_packet(bytes(req))
-
 
     async def receive_kex_reply(self) -> msg.SSHMessageKexDHReply:
         packet = await self.client.sock.read_packet()
         m = Buffer(packet.payload)
         resp = msg.SSHMessageKexDHReply.parse(m)
         return resp
-
 
     def compute_shared_secret(self, f: int, x: int) -> int:
         return pow(f, x, self.P)
@@ -164,7 +160,7 @@ class Curve25519:
         packet = await self.client.sock.read_packet()
         return msg.SSHMsgKexECDHReply.parse(Buffer(packet.payload))
 
-    def compute_shared_secret(self, pk:X25519PrivateKey, server_pub_key: bytes) -> int:
+    def compute_shared_secret(self, pk: X25519PrivateKey, server_pub_key: bytes) -> int:
         server_pub = X25519PublicKey.from_public_bytes(server_pub_key)
         return int.from_bytes(pk.exchange(server_pub))
 
@@ -183,7 +179,7 @@ class Curve25519:
         )
         return type(self).hash_algo(payload)
 
-    def verify_server_signature(self, server_host_key:bytes, sig:bytes, H:bytes):
+    def verify_server_signature(self, server_host_key: bytes, sig: bytes, H: bytes):
         server_key = self.client.available_server_host_key_algo[
             self.client.server_host_key_algo
         ].from_buffer(Buffer(server_host_key))

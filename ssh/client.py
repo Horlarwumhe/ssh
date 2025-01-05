@@ -1,7 +1,7 @@
 import logging
 import os
 from itertools import chain
-from cryptography.hazmat.primitives.asymmetric import  rsa
+from cryptography.hazmat.primitives.asymmetric import rsa
 import curio
 
 from ssh import util
@@ -70,7 +70,6 @@ class SSHClient:
         self.task_event = curio.Event()
         self.auth_event = curio.Event()
         self.authenticated = False
-        self.server_closed = False
         self.closed = self.server_closed = False
         self.close_reason = ""
         self.timeout = 5
@@ -172,16 +171,34 @@ class SSHClient:
         self.sock.start_encryption()
 
     def set_algos(self, server_kex: SSHMsgKexInit):
-        def select_algo(server,available,preferred):
-            return list(filter(lambda x: x in server,chain((preferred,),available)))[0]
-        
-        self.kex_algo = select_algo(server_kex.kex_algo,self.available_kex_algo,self.preferred_kex_algo)
-        self.server_host_key_algo = select_algo(server_kex.server_host_key_algo,self.available_server_host_key_algo,self.preferred_server_host_key_algo)
-        self.encryption_algo = select_algo(server_kex.encryption_algo_client_to_server,self.available_encryption_algo,self.preferred_encryption_algo)
-        self.mac_algo = select_algo(server_kex.mac_algo_client_to_server,self.available_mac_algo,self.preferred_mac_algo)
+        def select_algo(server, available, preferred):
+            return list(filter(lambda x: x in server, chain((preferred,), available)))[
+                0
+            ]
+
+        self.kex_algo = select_algo(
+            server_kex.kex_algo, self.available_kex_algo, self.preferred_kex_algo
+        )
+        self.server_host_key_algo = select_algo(
+            server_kex.server_host_key_algo,
+            self.available_server_host_key_algo,
+            self.preferred_server_host_key_algo,
+        )
+        self.encryption_algo = select_algo(
+            server_kex.encryption_algo_client_to_server,
+            self.available_encryption_algo,
+            self.preferred_encryption_algo,
+        )
+        self.mac_algo = select_algo(
+            server_kex.mac_algo_client_to_server,
+            self.available_mac_algo,
+            self.preferred_mac_algo,
+        )
         self.compression_algo = "none"  # TODO
         self.logger.log(logging.INFO, "Kex Algo: %s", self.kex_algo)
-        self.logger.log(logging.INFO, "server host key algo: %s", self.server_host_key_algo)
+        self.logger.log(
+            logging.INFO, "server host key algo: %s", self.server_host_key_algo
+        )
         self.logger.log(logging.INFO, "encryption algo: %s", self.encryption_algo)
         self.logger.log(logging.INFO, "mac algo: %s", self.mac_algo)
         self.logger.log(logging.INFO, "compression algo: %s", self.compression_algo)
@@ -193,7 +210,7 @@ class SSHClient:
             key = hash_algo(K + H + x.encode() + self.session_id)[:size]
             while len(key) < size:
                 key += hash_algo(K + H + key)
-            assert len(key[:size]) == size, "key size != %s"%size
+            assert len(key[:size]) == size, "key size != %s" % size
             return key[:size]
 
         K = util.to_mpint(K)
@@ -202,13 +219,13 @@ class SSHClient:
         key_size, iv_size = encryptor.key_size, encryptor.block_size
         mac_algo = self.available_mac_algo[self.mac_algo]
         mac_size = mac_algo.size
-        client_to_server_iv = compute_key("A",iv_size)
-        server_to_client_iv = compute_key("B",iv_size)
-        client_to_server_key = compute_key("C",key_size)
-        server_to_client_key = compute_key("D",key_size)    
-        client_to_server_mac = compute_key("E",mac_size)
-        server_to_client_mac = compute_key("F",mac_size)
-    
+        client_to_server_iv = compute_key("A", iv_size)
+        server_to_client_iv = compute_key("B", iv_size)
+        client_to_server_key = compute_key("C", key_size)
+        server_to_client_key = compute_key("D", key_size)
+        client_to_server_mac = compute_key("E", mac_size)
+        server_to_client_mac = compute_key("F", mac_size)
+
         # mac is not used when using chacha20-poly1305@openssh.com
         self.sock.set_mac_algo(
             mac_algo(client_to_server_mac), mac_algo(server_to_client_mac)
@@ -438,7 +455,7 @@ class SSHClient:
             await e.set()
         await self.auth_event.set()
         await self.close()
-        raise RuntimeError("server closed connection: %s"%m.description)
+        raise RuntimeError("server closed connection: %s" % m.description)
 
     async def handle_channel_message(self, m: SSHMsgChannelEOF):
         chan_id = m.recipient_channel
@@ -487,7 +504,7 @@ class SSHClient:
             self.logger.info("channel open failed %s", msg.description)
             description = msg.error_map.get(msg.reason_code, msg.description)
             self.channels[chid] = ChannelError(
-                "channel open failed [%s] %s" %(description,msg.description)
+                "channel open failed [%s] %s" % (description, msg.description)
             )
         else:
             channel = Channel(self, chid, msg.sender_channel)
@@ -499,7 +516,7 @@ class SSHClient:
     async def __aenter__(self):
         return self
 
-    async def __aexit__(self,*args):
+    async def __aexit__(self, *args):
         await self.close()
 
     # def __await__(self):
