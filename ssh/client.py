@@ -293,6 +293,14 @@ class SSHClient:
         await self.do_auth()
 
     async def login(self, username, password=None, key=None):
+        """
+        Authenticate using password or public key
+        :param username: username
+        :param password: password
+        :param key: path to the private key
+
+        One of password or key must be provided
+        """
         if key is not None:
             await self.auth_public_key(username, key)
         elif password is not None:

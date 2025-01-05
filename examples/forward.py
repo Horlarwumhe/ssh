@@ -25,7 +25,7 @@ async def main():
     async with SSHClient() as s:
         await s.connect(host, port)
         # login with public key
-        await s.auth_public_key("user", "/path/to/key")
+        await s.login("user", key="/path/to/key")
         while True:
             client, a = await sock.accept()
             chan = await s.open_port_forward("ip-api.com", 80, a[0], a[1])

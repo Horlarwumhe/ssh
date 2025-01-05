@@ -11,10 +11,10 @@ async def main():
     async with SSHClient() as s:
         await s.connect(host,port)
         #login with public key
-        await s.auth_public_key("user", "/path/to/key")
+        await s.login("user", key="/path/to/key")
 
         # or password
-        # await s.auth_password('user','pass')
+        # await s.login('user','pass')
 
         # Start SFTP client
         sftp = await s.open_sftp()

@@ -10,9 +10,9 @@ async def main():
     async with SSHClient() as s:
         await s.connect(host, port)
         # login with public key
-        await s.auth_public_key('user',"/path/to/key")
+        await s.login('user',key="/path/to/key")
         # or password
-        # await s.auth_password("user","pass")
+        # await s.login("user","pass")
         cmd = await s.run_command("ls /")
         print((await cmd.stdout()).decode())
         print((await cmd.stderr()).decode())
