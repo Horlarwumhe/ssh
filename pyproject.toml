@@ -3,9 +3,9 @@ name = "ssh"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.7"
 dependencies = [
     "cryptography>=44.0.0",
-    "rsa>=4.9",
-    "trio>=0.27.0",
+    "curio @ git+https://github.com/dabeaz/curio.git",
 ]
+
