@@ -34,6 +34,7 @@ class SSHClient:
         "aes256-ctr": enc.AESCTR256,
         "aes128-ctr": enc.AESCTR128,
         "aes192-ctr": enc.AESCTR192,
+        "chacha20-poly1305@openssh.com": enc.ChaCha20Poly1305,
     }
     preferred_mac_algo = ""
     available_mac_algo: dict[str, mac.HMAC] = {
@@ -207,6 +208,8 @@ class SSHClient:
         server_to_client_key = compute_key("D",key_size)    
         client_to_server_mac = compute_key("E",mac_size)
         server_to_client_mac = compute_key("F",mac_size)
+    
+        # mac is not used when using chacha20-poly1305@openssh.com
         self.sock.set_mac_algo(
             mac_algo(client_to_server_mac), mac_algo(server_to_client_mac)
         )

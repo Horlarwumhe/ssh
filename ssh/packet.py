@@ -39,12 +39,12 @@ class Packet:
         self.opcode = payload[0] if payload else 0
 
     @classmethod
-    def build(cls, payload: bytes, block_size=8,etm=False) -> "Packet":
+    def build(cls, payload: bytes, block_size=8, etm=False) -> "Packet":
         # https://datatracker.ietf.org/doc/html/rfc4253#section-6
         block_size = max(block_size, cls.block_size)
         # etm mode, 4 bytes to make up for packet length which is not included in encrypted data
-        # encrypted separately 
-        addlen =  4 if etm else 0
+        # encrypted separately
+        addlen = 4 if etm else 0
         padding_length = (addlen + block_size) - ((4 + 1 + len(payload)) % block_size)
         if padding_length < 4:
             padding_length += block_size
@@ -132,24 +132,35 @@ class Connection:
 
     async def read_encrypted_packet(self):
         decrypt = self.server_enc.decrypt
-        size = int.from_bytes(decrypt(await self.read(4)))
-        padding_length = int.from_bytes(decrypt(await self.read(1)))
-        payload = decrypt(await self.read(size - padding_length - 1))
-        padding = decrypt(await self.read(padding_length))
+        addlen = 4 if self.server_enc.etm else 0
+        if self.server_enc.etm:
+            encrypted_size = await self.read(4)
+            size = int.from_bytes(self.server_enc.decrypt_size(encrypted_size, self.server_seq_no))
+            data = await self.read(size)
+            mac = await self.read(16)
+            assert self.server_enc.verify(encrypted_size + data, mac, self.server_seq_no), "mac verification failed"
+            data = io.BytesIO(decrypt(data, self.server_seq_no))
+        else:
+            size = int.from_bytes(decrypt(await self.read(4)))
+            data = io.BytesIO(decrypt(await self.read(size)))
+        padding_length = data.read(1)[0]
+        payload = data.read(size - padding_length - 1)
+        padding = data.read(padding_length)
         assert (
-            4 + 1 + len(payload) + len(padding)
-        ) % self.block_size == 0, " block_size != 0"
+            (4 + 1 + len(payload) + len(padding)) % self.block_size == addlen
+        ), f" block_size != addlen {size+4} % {self.block_size} != {addlen}"
         p = Packet(payload=payload)
-        mac = await self.read(self.server_mac.size)
-        my_mac = self.server_mac.digest(
-            struct.pack(">IIB", self.server_seq_no, size, padding_length)
-            + payload
-            + padding
-        )
-        assert mac == my_mac, (
-            "error computed mac not match server mac mac(%s) != my_mac(%s) "
-            % (mac.hex(), my_mac.hex())
-        )
+        if self.server_enc.etm:
+            # mac has been verified above
+            pass
+        else:
+            mac = await self.read(self.server_mac.size)
+            my_mac = self.server_mac.digest(
+                struct.pack(">IIB", self.server_seq_no, size, padding_length)
+                + payload
+                + padding
+            )
+            assert mac == my_mac, "mac mismatch: %s != %s" % (mac.hex(), my_mac.hex())
         logger.log(
             logging.DEBUG,
             f"[incoming encrypted packet_length={size} opcode={code_to_desc(p.opcode)}]",
@@ -165,10 +176,12 @@ class Connection:
     async def send_packet(self, data: bytes):
         async with self.wlock:
             s = ""
+            etm = False
             if self.encrypted:
                 s = "encrypted"
+                etm = self.client_enc.etm
             cmd = code_to_desc(data[0])
-            p = Packet.build(data, block_size=self.block_size)
+            p = Packet.build(data, block_size=self.block_size, etm=etm)
             data = bytes(p)
             assert p.packet_length + 4 == len(data), "%s != %s" % (
                 p.packet_length + 4,
@@ -180,8 +193,12 @@ class Connection:
             )
             mac = b""
             if self.encrypted:
-                mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + data)
-                data = self.client_enc.encrypt(data)
+                if self.client_enc.etm:
+                    data = self.client_enc.encrypt(data, self.seq_no)
+                    mac = self.client_enc.digest(data, self.seq_no)
+                else:
+                    mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + data)
+                    data = self.client_enc.encrypt(data)
             await self.sock.sendall(data + mac)
             self.seq_no += 1 & 0xFFFFFFFF
 
