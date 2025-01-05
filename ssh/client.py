@@ -275,6 +275,14 @@ class SSHClient:
         await self.send_message(auth)
         await self.do_auth()
 
+    async def login(self, username, password=None, key=None):
+        if key is not None:
+            await self.auth_public_key(username, key)
+        elif password is not None:
+            await self.auth_password(username, password)
+        else:
+            raise ValueError("password or key required")
+
     @util.timeout
     async def do_auth(self):
         if self.close_event.is_set():
