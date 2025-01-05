@@ -26,9 +26,9 @@ async def main():
     async with SSHClient() as s:
         await s.connect(host,port)
         #login with public key
-        await s.auth_public_key("username", "/path/to/privatekey")
+        await s.login("username", key="/path/to/privatekey")
         # or password
-        # await s.auth_password("user","pass")
+        # await s.login("user","password")
         cmd = await s.run_command("ls /")
         #read from stdout
         print((await cmd.stdout()).decode())
@@ -65,7 +65,7 @@ async def main():
     port = 2222
     async with SSHClient() as s:
         await s.connect(host,port)
-        await s.auth_password("username","password")
+        await s.login("username","password")
 ```
 
 ##### stdout/stderr
@@ -108,7 +108,7 @@ async def main():
     async with SSHClient() as s:
         await s.connect(host,port)
         #login with public key
-        await s.auth_public_key("username", "/path/to/privatekey")
+        await s.login("username", key="/path/to/privatekey")
         while True:
             client,a = await sock.accept()
             chan = await s.open_port_forward("ip-api.com",80,a[0],a[1])
@@ -137,9 +137,9 @@ async def main():
     async with SSHClient() as s:
         await s.connect(host,port)
         #login with public key
-        await s.auth_public_key("ubuntu", "/path/to/key")
+        await s.login('username',key='/path/to/key')
         # or password
-        # await s.auth_password("user","pass")
+        # await s.login("user","password")
         # Start SFTP client
         sftp = await s.open_sftp()
 
