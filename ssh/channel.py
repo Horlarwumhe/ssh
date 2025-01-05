@@ -1,5 +1,6 @@
 import io
 import os
+import sys
 from ssh import util
 import curio
 
@@ -29,7 +30,9 @@ class Channel:
         self.request_event = curio.Event()
         self.request_success = None
         self.close_sent = False
+        self.sftp = False
         self.timeout = self.client.timeout
+        self.tty = self.shell = False
 
     @classmethod
     def next_id(cls):
@@ -76,6 +79,7 @@ class Channel:
         if not self.request_success:
             raise RuntimeError("Failed to request for tty")
         self.request_success = None
+        self.tty = True
 
     @util.timeout
     async def request_shell(self):
@@ -91,6 +95,7 @@ class Channel:
         if not self.request_success:
             raise RuntimeError("Failed to request for shell")
         self.request_success = None
+        self.shell = True
 
     @util.timeout
     async def request_subsystem(self, name):
@@ -258,6 +263,54 @@ class Channel:
     async def set_request_response(self,value):
         self.request_success = value
         await self.request_event.set()
+
+    @util.check_closed
+    async def run_interactive_shell(self):
+        """
+        Run an interactive shell
+        """
+        if not self.tty:
+            await self.request_tty()
+        if not self.shell:
+            await self.request_shell()
+        try:
+            import termios
+            import tty
+        except ImportError:
+            raise ImportError("interactive shell requires termios and tty module")
+
+        async def recv_from_chan():
+            while True:
+                data = await self.recv(2048)
+                if not data:
+                    break
+                sys.stdout.write(data.decode())
+                sys.stdout.flush()
+
+        # Adapted from https://github.com/paramiko/paramiko/blob/master/demos/interactive.py
+        oldtty = termios.tcgetattr(sys.stdin)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            tty.setcbreak(sys.stdin.fileno())
+            task = await curio.spawn(recv_from_chan)
+            stdin = curio.file.AsyncFile(sys.stdin)
+            while True:
+                d = await stdin.read(1)
+                if not d:
+                    break
+                if self.closed:
+                    break
+                await self.send(d.encode())
+
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+            await task.cancel()
+            try:
+                await task.join()
+            except Exception:
+                pass
+        await self.close()
+        sys.stdout.write("connection closed\n")
 
 
 class ChannelError(Channel):
