@@ -278,12 +278,21 @@ class Channel:
             raise ImportError("interactive shell requires termios and tty module")
 
         async def recv_from_chan():
-            while True:
-                data = await self.recv(2048)
-                if not data:
-                    break
-                sys.stdout.write(data.decode())
-                sys.stdout.flush()
+            try:
+                while True:
+                    data = await self.recv(2048)
+                    if b'\x1b[?1049l' in data:
+                        #  soft reset terminal after commands that open alternate screen buffer
+                        #  exits. This is a bit of a hack, but it works. vim,nano, screen
+                        sys.stdout.write('\033[!p')
+                        sys.stdout.flush()
+                        pass
+                    if not data:
+                        break
+                    sys.stdout.write(data.decode(errors="replace"))
+                    sys.stdout.flush()
+            finally:
+                await self.close()
 
         # Adapted from https://github.com/paramiko/paramiko/blob/master/demos/interactive.py
         oldtty = termios.tcgetattr(sys.stdin)
