@@ -117,6 +117,35 @@ class Channel:
         self.request_success = None
         if name == "sftp":
             self.sftp = True
+
+    async def request_env(self, name, value):
+        """
+        Request to set an environment variable for the channel
+        param name: name of the environment variable
+        param value: value of the environment variable
+        """
+        self.request_event.clear()
+        msg = MSG.SSHMsgChannelRequest(
+            recipient_channel=self.remote_id,
+            type="env",
+            want_reply=True,
+            name=name,
+            value=value,
+        )
+        await self.send_message(msg)
+        await self.request_event.wait()
+        if not self.request_success:
+            raise RuntimeError("Failed to set environment variable")
+        self.request_success = None
+
+    async def setenv(self, env: dict):
+        """
+        Set multiple environment variables for the channel
+        param env: dictionary of environment variables
+        """
+        for k, v in env.items():
+            await self.request_env(k, v)
+
     @util.check_closed
     async def send(self, data: str | bytes):
         """
