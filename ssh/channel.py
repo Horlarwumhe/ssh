@@ -344,13 +344,13 @@ class Channel:
 
         finally:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+            await self.close()
             await task.cancel()
             try:
                 await task.join()
             except Exception:
                 pass
-        await self.close()
-        sys.stdout.write("connection closed\n")
+            sys.stdout.write("connection closed\n")
 
 
 class ChannelError(Channel):
