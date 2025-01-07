@@ -266,7 +266,11 @@ class Channel:
         Close the channel
         """
         if not self.close_sent:
-            await self.send_message(MSG.SSHMsgChannelClose(recipient_channel=self.remote_id))
+            try:
+                await self.send_message(MSG.SSHMsgChannelClose(recipient_channel=self.remote_id))
+            except OSError:
+                # socket related errors
+                pass
             self.close_sent = True
         self.closed = True
         await self.data_event.set()
