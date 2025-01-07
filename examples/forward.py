@@ -1,6 +1,7 @@
 from ssh import SSHClient
 import curio
 from curio.socket import socket
+import socket as pysock
 
 
 async def copy_data(src, dest):
@@ -9,7 +10,10 @@ async def copy_data(src, dest):
         d = await src.recv(1024)
         if not d:
             await src.close()
-            await dest.close()
+            if hasattr(dest,'shutdown'):
+                await dest.shutdown(pysock.SHUT_RDWR)
+            else:
+                await dest.close()
             break
         await dest.send(d)
 

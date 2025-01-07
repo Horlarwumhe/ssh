@@ -92,8 +92,12 @@ async def copy_data(src, dest):
     while True:
         d = await src.recv(1024)
         if not d:
+            if hasattr(dest,'shutdown'):
+                await dest.shutdown(2) # SHUT_RDWR
+            else:
+                await dest.close()
             await src.close()
-            await dest.close()
+            
             break
         await dest.send(d)
 
