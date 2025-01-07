@@ -57,14 +57,10 @@ class Packet:
             total_size += add
             padding_length += add
         padding = os.urandom(padding_length)
-        buf = Buffer()
-        buf.write_int(packet_length)
-        buf.write_byte(int.to_bytes(padding_length, 1))
-        buf.write_byte(payload)
-        buf.write_byte(padding)
-        assert total_size % block_size == addlen ,f"{total_size} % {block_size} != {addlen}"
+        packet = struct.pack(">IB", packet_length, padding_length) + payload + padding
+        assert total_size % block_size == addlen, f"{total_size} % {block_size} != {addlen}"
         return Packet(
-            data=buf.getvalue(),
+            data=packet,
             packet_length=packet_length,
             padding_length=padding_length,
         )
