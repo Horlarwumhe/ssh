@@ -486,11 +486,15 @@ class SSHClient:
             await channel.set_eof()
         if m.opcode == SSHMsgChannelRequest.opcode:
             self.logger.info("exit code %s", chan_id)
-            if m.type != "exit-status":
+            if m.type not in  ("exit-status","exit-signal"):
                 self.logger.info("Unknow chnannel request type %s", m.type)
                 return
-            await channel.set_exit_event(m.exit_status)
-            channel.set_exit_code(m.exit_status)
+            if m.type == "exit-signal":
+                code = getattr(signal,"SIG%s"%m.signal_name,1)
+            else:
+                code = m.exit_status
+            await channel.set_exit_event(code)
+            channel.set_exit_code(code)
 
     async def handle_channel_data(self, m: SSHMsgChannelData):
         data = m.data

@@ -623,6 +623,11 @@ class SSHMsgChannelRequest(SSHMessage):
     signal_name: str = ""
     # exi-status request
     exit_status: int = 0
+    # exit-signal
+    signal_name: str = ""
+    core_dump: bool = False
+    error: str = ''
+    lang: str = ""
 
     @classmethod
     def parse(cls, buf: Buffer):
@@ -687,6 +692,16 @@ class SSHMsgChannelRequest(SSHMessage):
                 type=type_,
                 want_reply=want_reply,
                 exit_status=buf.read_int(),
+            )
+        elif type_ == "exit-signal":
+            return cls(
+                recipient_channel=recipient_channel,
+                type=type_,
+                want_reply=want_reply,
+                signal_name=buf.read_string(),
+                core_dump=buf.read_bool(),
+                error=buf.read_string(),
+                lang=buf.read_string(),
             )
         else:
             # self.type == "shell"
