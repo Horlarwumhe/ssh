@@ -25,6 +25,7 @@ class SSHClient:
         "diffie-hellman-group14-sha256": kex.DHGroup14SHA256,
         "diffie-hellman-group16-sha512": kex.DHGroup16SHA512,
         "curve25519-sha256": kex.Curve25519,
+        "curve25519-sha256@libssh.org": kex.Curve25519,
         "diffie-hellman-group14-sha1": kex.DHGroup14SHA1,
         "diffie-hellman-group1-sha1": kex.DHGroup1SHA1,
         "diffie-hellman-group18-sha512": kex.DHGroup18SHA512,
