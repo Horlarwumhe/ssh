@@ -75,6 +75,7 @@ class SSHClient:
         self.closed = self.server_closed = False
         self.close_reason = ""
         self.timeout = 5
+        self.rekey = False
 
         self.message_handlers = {
             SSHMsgDisconnect.opcode: self.handle_message_disconnect,
@@ -89,6 +90,7 @@ class SSHClient:
             SSHMsgChannelOpenFailure.opcode: self.handle_channel_open,
             SSHMsgUserauthFailure.opcode: self.handle_auth_response,
             SSHMsgUserauthSuccess.opcode: self.handle_auth_response,
+            SSHMsgKexInit.opcode: self.handle_kex_init,
         }
 
     async def connect(self, host, port):
@@ -127,12 +129,16 @@ class SSHClient:
                 self.tasks.add(await curio.spawn(fn, msg))
             else:
                 self.logger.log(logging.INFO, "handler not found %s", msg.__class__)
+            if msg.opcode == SSHMsgKexInit.opcode:
+                # rekeying. kexinit after inital kexinit. 
+                self.logger.info("new kex init")
+                break
 
-    async def start_kex(self):
+    async def start_kex(self,server_kex=None):
         def insert_preferred_algo(algo, preferred):
             if preferred:
                 algo.insert(0, preferred)
-    
+
         req = SSHMsgKexInit(
             cookie=os.urandom(16),
             kex_algo=list(self.available_kex_algo.keys()),
@@ -160,17 +166,24 @@ class SSHClient:
         insert_preferred_algo(req.mac_algo_server_to_client, self.preferred_mac_algo)
 
         await self.sock.send_packet(bytes(req))
-        packet = await self.sock.read_packet()
-        resp = SSHMsgKexInit.parse(Buffer(packet.payload))
-        self.server_kex_init = resp
+        if server_kex:
+            # rekey
+            self.rekey = True
+            self.server_kex_init = server_kex
+            resp = server_kex
+        else:
+            packet = await self.sock.read_packet()
+            resp = SSHMsgKexInit.parse(Buffer(packet.payload))
+            self.server_kex_init = resp
         self.kex_init = req
         self.set_algos(resp)
         kex_result = await self.available_kex_algo[self.kex_algo](self).start()
         if not self.session_id:
             self.session_id = kex_result.H
-        self.set_ciphers(kex_result.K, kex_result.H)
         await self.end_kex_init()
+        self.set_ciphers(kex_result.K, kex_result.H)
         self.sock.start_encryption()
+        
 
     def set_algos(self, server_kex: SSHMsgKexInit):
         def select_algo(server, available, preferred):
@@ -526,6 +539,11 @@ class SSHClient:
             self.logger.info("Channel open success %s", chid)
         await ev.set()
 
+        
+    async def handle_kex_init(self,msg: SSHMsgKexInit):
+        self.logger.warning("Kex init received: rekeying...")
+        await self.start_kex(server_kex=msg)
+        self.tasks.add(await curio.spawn(self.get_packets))
 
     async def __aenter__(self):
         return self
