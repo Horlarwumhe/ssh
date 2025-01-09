@@ -1,6 +1,7 @@
 import logging
 import os
 from itertools import chain
+import signal
 from cryptography.hazmat.primitives.asymmetric import rsa
 import curio
 
