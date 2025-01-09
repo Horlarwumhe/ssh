@@ -45,7 +45,7 @@ class SFTP:
         await self.send(r)
         resp = await self.get_response(r.id)
         if isinstance(resp, SSHFXPSTATUS):
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, file))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, file),resp.error)
         return SFTPFile(resp.handle, mode, buffering, self)
 
     async def mkdir(self, path, mode=0o777, parents=False):
@@ -70,7 +70,7 @@ class SFTP:
                 # maybe directory already exists
                 pass
             elif resp.error != SSH_FXF_STATUS.OK:
-                raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+                raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
     async def listdir(self, path):
         """
@@ -81,7 +81,7 @@ class SFTP:
         await self.send(r)
         resp = await self.get_response(r.id)
         if isinstance(resp, SSHFXPSTATUS):
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
         handle = resp.handle
         r = SSHFXPREADDIR(id=rand_id(), handle=handle)
         await self.send(r)
@@ -96,7 +96,7 @@ class SFTP:
                 paths.append(p)
             return paths
         else:
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
     async def stat(self, path: str):
         """
@@ -120,7 +120,7 @@ class SFTP:
         await self.send(r)
         resp = await self.get_response(r.id)
         if resp.error != SSH_FXF_STATUS.OK:
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
     async def chown(self, path, uid, gid):
         """
@@ -133,7 +133,7 @@ class SFTP:
         await self.send(r)
         resp = await self.get_response(r.id)
         if resp.error != SSH_FXF_STATUS.OK:
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
     async def file_stat(self, msg):
         await self.send(msg)
@@ -155,7 +155,7 @@ class SFTP:
                 )
             )
         path = msg.path if hasattr(msg, "path") else ""
-        raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+        raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
     async def remove(self, filename):
         """
@@ -166,7 +166,7 @@ class SFTP:
         await self.send(r)
         resp = await self.get_response(r.id)
         if resp.error != SSH_FXF_STATUS.OK:
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, filename))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, filename),resp.error)
 
     async def rmdir(self, path):
         """
@@ -177,7 +177,7 @@ class SFTP:
         await self.send(r)
         resp = await self.get_response(r.id)
         if resp.error != SSH_FXF_STATUS.OK:
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
     async def rename(self, oldpath, newpath):
         """
@@ -189,7 +189,7 @@ class SFTP:
         await self.send(r)
         resp = await self.get_response(r.id)
         if resp.error != SSH_FXF_STATUS.OK:
-            raise OSError("[error %s] %s %s" % (resp.error, resp.message, oldpath))
+            raise OSError("[error %s] %s %s" % (resp.error, resp.message, oldpath),resp.error)
 
     async def send(self, message):
         if hasattr(message, "id"):
@@ -254,7 +254,7 @@ class SFTPFile:
         if isinstance(resp, SSHFXPSTATUS):
             if resp.error == SSH_FXF_STATUS.EOF:
                 return b""
-            raise OSError("[error %s] %s" % (resp.error, resp.message))
+            raise OSError("[error %s] %s" % (resp.error, resp.message),resp.error)
         self.offset += len(resp.data)
         return resp.data
 
@@ -286,7 +286,7 @@ class SFTPFile:
         resp = await self.sftp.get_response(r.id)
         if isinstance(resp, SSHFXPSTATUS):
             if resp.error != SSH_FXF_STATUS.OK:
-                raise OSError("[error %s] %s" % (resp.error, resp.message))
+                raise OSError("[error %s] %s" % (resp.error, resp.message),resp.error)
 
     async def flush(self):
         """
