@@ -25,6 +25,7 @@ def main():
         "--local-forward",
         help="local port forwarding. [local]:localport:dest:destport",
     )
+    parser.add_argument("-T",help= "disable pseudo-tty allocation", action="store_true")
     args = parser.parse_args()
     try:
         args.host.split("@")
@@ -155,7 +156,11 @@ async def cli_main(args):
         session = await ssh.open_session()
         # disable logging in shell
         logging.disable(level=logging.INFO)
-        await session.run_interactive_shell()
+        try:
+            await session.run_interactive_shell(tty=not args.T)
+        except Exception as e:
+            print(e)
+            exit(1)
         if task:
             await task.cancel()
             try:
