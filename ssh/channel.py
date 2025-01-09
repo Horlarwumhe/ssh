@@ -319,10 +319,12 @@ class Channel:
                         #  exits. This is a bit of a hack, but it works. vim,nano, screen
                         sys.stdout.write('\033[!p')
                         sys.stdout.flush()
-                        pass
                     if not data:
                         break
                     sys.stdout.write(data.decode(errors="replace"))
+                    # the above hack doesnt work for apt, and probably some other commands.
+                    # This might be overkill, but it is only solution for now.
+                    sys.stdout.write("\033[!p")
                     sys.stdout.flush()
             finally:
                 await self.close()
