@@ -10,4 +10,6 @@ dependencies = [
 ]
 [project.scripts]
 pyssh = "ssh.cli.ssh:main"
+pyscp = "ssh.cli.scp:main"
+
 
