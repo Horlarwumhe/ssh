@@ -8,4 +8,6 @@ dependencies = [
     "cryptography>=44.0.0",
     "curio @ git+https://github.com/dabeaz/curio.git",
 ]
+[project.scripts]
+pyssh = "ssh.cli.ssh:main"
 
