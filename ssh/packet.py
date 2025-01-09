@@ -53,9 +53,9 @@ class Packet:
         min_size = max(block_size, cls.min_size)
         if total_size < min_size:
             add = min_size - total_size
-            packet_length += add
-            total_size += add
-            padding_length += add
+            packet_length += add + addlen
+            total_size += add + addlen
+            padding_length += add + addlen
         padding = os.urandom(padding_length)
         packet = struct.pack(">IB", packet_length, padding_length) + payload + padding
         assert total_size % block_size == addlen, f"{total_size} % {block_size} != {addlen}"
