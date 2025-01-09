@@ -230,4 +230,5 @@ class Connection:
         # self.server_seq_no = self.seq_no = 0
 
     async def close(self):
-        await self.sock.close()
+        if self.sock:
+            await self.sock.close()
