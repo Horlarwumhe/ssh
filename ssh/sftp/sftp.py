@@ -72,7 +72,7 @@ class SFTP:
             elif resp.error != SSH_FXF_STATUS.OK:
                 raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
-    async def listdir(self, path):
+    async def listdir(self, path,attrs=False):
         """
         List the contents of a directory on the remote server.
         :param path: the path of the directory to list
@@ -93,6 +93,8 @@ class SFTP:
                 p = name["filename"]
                 if p in (".", ".."):
                     continue
+                if attrs:
+                    p = (p,name["attrs"])
                 paths.append(p)
             return paths
         else:
