@@ -66,18 +66,15 @@ async def gather_all_remote_files(sftp,path):
         """
         Gather all files from remote path recurisvely.
         """
+        result = []
         path = pathlib.Path(path)
-        try:
-            f = await sftp.stat(str(path))
-        except OSError:
-            exit(1)
-        if stat.S_ISREG(f.st_mode):
-            return [path]
-        if stat.S_ISDIR(f.st_mode):
-            files = await sftp.listdir(str(path))
-            files = [await gather_all_remote_files(sftp,path / f) for f in files]
-            return [f for sublist in files for f in sublist]
-        return []
+        for name,attrs in await sftp.listdir(str(path),attrs=True):
+            fullname = path / name
+            if stat.S_ISREG(attrs.permissions):
+                result.append(fullname)
+            elif stat.S_ISDIR(attrs.permissions):
+                result.extend(await gather_all_remote_files(sftp,fullname))
+        return result
 
 async def copy_from_remote(ssh,path,args):
     """
