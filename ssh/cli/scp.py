@@ -84,16 +84,19 @@ async def copy_from_remote(ssh,path,args):
     :args: argparse.Namespace
     """
     sftp  = await ssh.open_sftp()
+    path = pathlib.Path(path)
     try:
-        await sftp.stat(path)
+        f = await sftp.stat(str(path))
     except OSError as e:
         sys.stderr.write("%s %s" % (e,args.src[0]))
         exit(1)
     sys.stdout.write("Listing remote files\n")
-    files = await gather_all_remote_files(sftp,path)
+    if stat.S_ISREG(f.st_mode):
+        files = [path]
+    elif stat.S_ISDIR(f.st_mode):
+        files = await gather_all_remote_files(sftp,path)
     sys.stdout.write("total files %d\n" % len(files))
     tasks = []
-    path = pathlib.Path(path)
     lock = curio.Semaphore(value=fdlimit)
     for f in files:
         file = (f,path.name/f.relative_to(path))
