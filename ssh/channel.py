@@ -33,7 +33,7 @@ class Channel:
         self.sftp = False
         self.timeout = self.client.timeout
         self.tty = self.shell = False
-
+        self.sent_bytes = self.recv_bytes = 0
     @classmethod
     def next_id(cls):
         return next(cls.ids_pool)
@@ -245,7 +245,9 @@ class Channel:
             self.buf.seek(0, os.SEEK_END)
             self.buf.write(data)
             self.buf.seek(pos)
+            self.recv_bytes += len(data)
             await self.data_event.set()
+        await self.check_window_size()
 
     async def set_ext_data(self, data):
         async with self.lock2:
@@ -253,7 +255,19 @@ class Channel:
             self.ext_buf.seek(0, os.SEEK_END)
             self.ext_buf.write(data)
             self.ext_buf.seek(pos)
+            self.recv_bytes += len(data)
             await self.ext_data_event.set()
+        await self.check_window_size()
+        
+    
+    async def check_window_size(self):
+        size = 2 << 31 - 1 # 2GB
+        if self.recv_bytes >= size:
+            # This size is mostly reached when using sftp/scp.
+            logging.info('window size(%s) reached, adjusting....'%size)
+            await self.client.send_message(MSG.SSHMsgWindowAdjust(recipient_channel=self.remote_id,size=size))
+            self.recv_bytes = 0
+
 
     def has_data(self):
         """
