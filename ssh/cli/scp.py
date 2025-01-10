@@ -1,14 +1,9 @@
 from argparse import ArgumentParser
-import asyncio
 import getpass
 import logging
 import os
 import pathlib
-import select
 import sys
-import time
-from curio import socket
-import socket as pysock
 import curio
 from ssh import SSHClient
 from ssh.sftp import SFTP
@@ -16,9 +11,7 @@ import resource
 import tqdm
 import logging
 import stat
-# logging.basicConfig(level=logging.INFO)
-# s = SSHClient()
-# s.
+
 
 fdlimit = resource.getrlimit(resource.RLIMIT_NOFILE)[0] - 20
 bar_format = "{l_bar} {n_fmt}/{total_fmt} {rate_fmt}{postfix}"
@@ -137,14 +130,16 @@ async def copy_file_from_remote(sftp,dest,file,lock):
     except Exception as e:
         sys.stderr.write("error downloading file %s: %s\n"%(abspath,e))
 
-async def copy_to_remote(ssh, dest, args):
+async def copy_to_remote(ssh, path, args):
     """
     copy files from local to remote
     pyscp -r local_dir user@host:/path/to/dest
     dest: remote dest path
     args: argparse.Namespace
     """
+    files = gather_all_files(args)
     sftp = await ssh.open_sftp()
+    dest = path
     if dest == "":
         dest = "."
     try:
@@ -160,7 +155,6 @@ async def copy_to_remote(ssh, dest, args):
             sys.stderr.write("%s %s\n" % (e.args[0], args.dest))
             exit(1)
     tasks = []
-    files = gather_all_files(args)
     # semaphore for file descriptor limit. To avoid "Too many open files" error.
     fd = curio.Semaphore(value=fdlimit)
     for file in files:
@@ -250,6 +244,6 @@ async def cli_main(args):
             await copy_to_remote(ssh, host_path, args)
         else:
             if not os.path.exists(args.dest) or not os.path.isdir(args.dest):
-               sys.stderr.write("Invalid destination path.\n")
+               sys.stderr.write("Invalid destination path. %s\n"%args.dest)
                exit(1)
             await copy_from_remote(ssh,host_path,args)
