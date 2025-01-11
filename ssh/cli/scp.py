@@ -197,7 +197,6 @@ async def cli_main(args):
     # user,host = args.host.split("@")
     port = args.port
     src = set(args.src)  # convert to set to remove duplicate src
-    print(args.dest,args.src)
     if "@" in args.dest:
         # dest remote
         to_remote = True
