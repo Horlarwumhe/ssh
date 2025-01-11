@@ -11,6 +11,7 @@ import logging
 
 class Channel:
     ids_pool = iter(range(1, 2 << 31))
+    window_size = 2 << 31 - 1 # 2GB
 
     def __init__(self, client, chid=0, remote_id=0):
         self.channel_id = chid
@@ -261,11 +262,10 @@ class Channel:
         
     
     async def check_window_size(self):
-        size = 2 << 31 - 1 # 2GB
-        if self.recv_bytes >= size:
+        if self.recv_bytes >= self.window_size:
             # This size is mostly reached when using sftp/scp.
-            logging.info('window size(%s) reached, adjusting....'%size)
-            await self.client.send_message(MSG.SSHMsgWindowAdjust(recipient_channel=self.remote_id,size=size))
+            logging.info('window size(%s) reached, adjusting....'%self.window_size)
+            await self.client.send_message(MSG.SSHMsgWindowAdjust(recipient_channel=self.remote_id,size=self.window_size))
             self.recv_bytes = 0
 
 
