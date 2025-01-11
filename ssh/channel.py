@@ -175,6 +175,8 @@ class Channel:
             data = self.buf.read(size)
             if data == b"" and self.is_active():
                 self.data_event.clear()
+                # clear memory
+                self.buf = io.BytesIO()
                 # release lock so writer wont block
                 await self.lock.release()
                 await self.data_event.wait()
