@@ -79,7 +79,7 @@ class Connection:
 
     def __init__(self) -> None:
         self.sock = None
-        self.buf = io.BytesIO()
+        self.buf = None
         self.seq_no = 0
         self.server_seq_no = 0
         self.encrypted = False
@@ -93,18 +93,16 @@ class Connection:
         if self.sock is None:
             self.sock = socket.socket()
         await self.sock.connect((host, port))
+        self.buf = self.sock.makefile("rb")
+        
 
     async def read(self, size):
-        data = self.buf.read(size)
+        data = await self.buf.read(size)
         while len(data) < size:
-            pos = self.buf.tell()
-            b = await self.sock.recv(size * 4)  # read upto 4x requested size
+            b = await self.buf.read(size - len(data))
             if not b:
                 raise ConnectionAbortedError("server closed")
-            self.buf.seek(0, os.SEEK_END)
-            self.buf.write(b)
-            self.buf.seek(pos)
-            data += self.buf.read(size - len(data))
+            data += b
         return data
 
     async def read_packet(self):
@@ -202,15 +200,7 @@ class Connection:
         await self.sock.send(data)
 
     async def readline(self):
-        line = self.buf.readline()
-        if not line.endswith(b"\n"):
-            pos = self.buf.tell()
-            data = await self.sock.recv(self.recv_size)
-            self.buf.seek(0, os.SEEK_END)
-            self.buf.write(data)
-            self.buf.seek(pos)
-            line += self.buf.readline()
-        return line
+        return await self.buf.readline()
 
     def set_block_size(self, block_size):
         self.block_size = block_size
