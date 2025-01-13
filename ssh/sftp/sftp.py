@@ -20,7 +20,7 @@ class SFTP:
         self.waiting: dict[int, curio.Event] = {}
         self.responses: dict[int, object] = {}
 
-    async def open(self, file, mode, buffering=False):
+    async def open(self, file: str, mode: str, buffering=False) -> "SFTPFile":
         """
         Open a file on the remote server.
         :param file: the file to open
@@ -48,7 +48,7 @@ class SFTP:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, file),resp.error)
         return SFTPFile(resp.handle, mode, buffering, self)
 
-    async def mkdir(self, path, mode=0o777, parents=False):
+    async def mkdir(self, path: str, mode: int =0o777, parents=False) -> None:
         """
         Create a directory on the remote server.
         :param path: the path of the directory to create
@@ -72,7 +72,7 @@ class SFTP:
             elif resp.error != SSH_FXF_STATUS.OK:
                 raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
-    async def listdir(self, path,attrs=False):
+    async def listdir(self, path: str,attrs=False)  -> list:
         """
         List the contents of a directory on the remote server.
         :param path: the path of the directory to list
@@ -100,7 +100,7 @@ class SFTP:
         else:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
-    async def stat(self, path: str):
+    async def stat(self, path: str) -> os.stat_result:
         """
         Get the status of a file on the remote server. This is similar to os.stat
         :param path: the path of the file to stat
@@ -108,11 +108,11 @@ class SFTP:
         r = SSHFXPSTAT(id=rand_id(), path=path)
         return await self.file_stat(r)
 
-    async def fstat(self, handle: bytes):
+    async def fstat(self, handle: bytes) -> os.stat_result:
         r = SSHFXPFSTAT(id=rand_id(), handle=handle)
         return await self.file_stat(r)
 
-    async def chmod(self, path, mode):
+    async def chmod(self, path: str, mode: int) -> None:
         """
         Change the permissions of a file on the remote server.
         :param path: the path of the file to change
@@ -124,7 +124,7 @@ class SFTP:
         if resp.error != SSH_FXF_STATUS.OK:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
-    async def chown(self, path, uid, gid):
+    async def chown(self, path: str, uid: int, gid: int) -> None:
         """
         Change the owner of a file on the remote server.
         :param path: the path of the file to change
@@ -137,7 +137,7 @@ class SFTP:
         if resp.error != SSH_FXF_STATUS.OK:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
-    async def file_stat(self, msg):
+    async def file_stat(self, msg) -> os.stat_result:
         await self.send(msg)
         resp = await self.get_response(msg.id)
         if isinstance(resp, SSHFXPATTRS):
@@ -159,7 +159,7 @@ class SFTP:
         path = msg.path if hasattr(msg, "path") else ""
         raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
-    async def remove(self, filename):
+    async def remove(self, filename: str) -> None:
         """
         Remove a file on the remote server.
         :param filename: the path of the file to remove
@@ -170,7 +170,7 @@ class SFTP:
         if resp.error != SSH_FXF_STATUS.OK:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, filename),resp.error)
 
-    async def rmdir(self, path):
+    async def rmdir(self, path: str) -> None:
         """
         Remove a directory on the remote server.
         :param path: the path of the directory to remove
@@ -181,7 +181,7 @@ class SFTP:
         if resp.error != SSH_FXF_STATUS.OK:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
-    async def rename(self, oldpath, newpath):
+    async def rename(self, oldpath: str, newpath: str) -> None:
         """
         Rename a file on the remote server.
         :param oldpath: the old path of the file
@@ -193,13 +193,13 @@ class SFTP:
         if resp.error != SSH_FXF_STATUS.OK:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, oldpath),resp.error)
 
-    async def send(self, message):
+    async def send(self, message: SFTPMessage) -> None:
         if hasattr(message, "id"):
             self.waiting[message.id] = curio.Event()
         data = int.to_bytes(len(bytes(message)), 4, "big") + bytes(message)
         await self.channel.send(data)
 
-    async def read_response(self):
+    async def read_response(self) -> SFTPMessage:
         size = int.from_bytes(await self.channel.recv(4))
         data = b""
         while len(data) < size:
@@ -207,17 +207,17 @@ class SFTP:
         type = data[0]
         return HANDLERS[type].parse(Buffer(data))
 
-    async def get_response(self, id):
+    async def get_response(self, id) -> SFTPMessage:
         await self.waiting[id].wait()
         return self.responses.pop(id)
 
-    async def read_incoming_responses(self):
+    async def read_incoming_responses(self) -> NoReturn:
         while True:
             resp = await self.read_response()
             self.responses[resp.id] = resp
             await self.waiting[resp.id].set()
 
-    async def init(self):
+    async def init(self) -> None:
         r = SSHFXPINIT(version=3, extensions={})
         await self.send(r)
         resp = await self.read_response()
@@ -238,7 +238,7 @@ class SFTPFile:
         self.closed = False
         self.buffer = io.BytesIO()
 
-    async def read(self, size=None):
+    async def read(self, size=None) -> bytes:
         """
         Read data from the file.
         """
@@ -260,7 +260,7 @@ class SFTPFile:
         self.offset += len(resp.data)
         return resp.data
 
-    async def write(self, data):
+    async def write(self, data: bytes) -> None:
         """
         Write data to the file.
         """
@@ -277,7 +277,7 @@ class SFTPFile:
     def writable(self):
         return "w" in self.mode or "a" in self.mode
 
-    async def do_write(self):
+    async def do_write(self) -> None:
         data = self.buffer.getvalue()
         if not data:
             return
@@ -290,14 +290,14 @@ class SFTPFile:
             if resp.error != SSH_FXF_STATUS.OK:
                 raise OSError("[error %s] %s" % (resp.error, resp.message),resp.error)
 
-    async def flush(self):
+    async def flush(self) -> None:
         """
         Flush the file.
         """
         if self.writable and self.buffering:
             await self.do_write()
 
-    async def close(self):
+    async def close(self) -> None:
         """
         Close the file.
         """
@@ -307,7 +307,7 @@ class SFTPFile:
         await self.sftp.send(SSHFXPCLOSE(id=rand_id(), handle=self.handle))
         self.closed = True
 
-    async def seek(self, pos, whence=os.SEEK_SET):
+    async def seek(self, pos, whence=os.SEEK_SET) -> int:
         """
         Change the file position. similar to os.lseek.
         :param pos: the new position
@@ -326,7 +326,7 @@ class SFTPFile:
             raise ValueError("invalid whence (%s, should be 0, 1 or 2)" % whence)
         return self.offset
 
-    def tell(self):
+    def tell(self) -> int:
         """
         Get the current file position.
         """

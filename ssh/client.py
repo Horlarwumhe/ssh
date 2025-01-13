@@ -2,6 +2,7 @@ import logging
 import os
 from itertools import chain
 import signal
+from typing import NoReturn, Optional
 from cryptography.hazmat.primitives.asymmetric import rsa
 import curio
 
@@ -93,7 +94,7 @@ class SSHClient:
             SSHMsgKexInit.opcode: self.handle_kex_init,
         }
 
-    async def connect(self, host, port):
+    async def connect(self, host: str, port: int) -> None:
         """
         Connect to the server
         :param host: hostname
@@ -114,7 +115,7 @@ class SSHClient:
         await self.start_kex()
         self.tasks.add(await curio.spawn(self.get_packets))
 
-    async def get_packets(self):
+    async def get_packets(self) -> NoReturn:
         self.tasks.add(await curio.spawn(self.clean_up_tasks))
         while True:
             packet = await self.sock.read_packet()
@@ -134,7 +135,7 @@ class SSHClient:
                 self.logger.info("new kex init")
                 break
 
-    async def start_kex(self,server_kex=None):
+    async def start_kex(self,server_kex: SSHMsgKexInit | None = None) -> None:
         def insert_preferred_algo(algo, preferred):
             if preferred:
                 algo.insert(0, preferred)
@@ -185,7 +186,7 @@ class SSHClient:
         self.sock.start_encryption()
         
 
-    def set_algos(self, server_kex: SSHMsgKexInit):
+    def set_algos(self, server_kex: SSHMsgKexInit) -> None:
         def select_algo(server, available, preferred):
             return list(filter(lambda x: x in server, chain((preferred,), available)))[
                 0
@@ -218,7 +219,7 @@ class SSHClient:
         self.logger.log(logging.INFO, "mac algo: %s", self.mac_algo)
         self.logger.log(logging.INFO, "compression algo: %s", self.compression_algo)
 
-    def set_ciphers(self, K, H):
+    def set_ciphers(self, K: int, H: bytes) -> None:
         # K || H || "A" || session_id)
         # https://datatracker.ietf.org/doc/html/rfc4253#section-7.2
         def compute_key(x, size):
@@ -257,10 +258,10 @@ class SSHClient:
         self.logger.log(DEBUG, "New keys: %s", packet.opcode)
 
     @util.check_closed
-    async def send_message(self, msg: SSHMessage):
+    async def send_message(self, msg: SSHMessage) -> None:
         await self.sock.send_packet(bytes(msg))
 
-    async def auth_password(self, username, password=""):
+    async def auth_password(self, username: str, password: str ="") -> None:
         """
         Authenticate using password
         :param username: username
@@ -281,7 +282,7 @@ class SSHClient:
         await self.do_auth()
         # self.wait_for_message()
 
-    async def auth_public_key(self, username, key_path=""):
+    async def auth_public_key(self, username: str, key_path: str="") -> None:
         """
         Authenticate using public key
         :param username: username
@@ -324,7 +325,7 @@ class SSHClient:
             raise ValueError("password or key required")
 
     @util.timeout
-    async def do_auth(self):
+    async def do_auth(self) -> bool:
         if self.close_event.is_set():
             raise RuntimeError("server closed connection (%s)" % self.close_reason)
         self.auth_event.clear()
@@ -335,7 +336,7 @@ class SSHClient:
             raise TypeError("Authencation error")
         return True
 
-    def compute_auth_signature(self, username, pk):
+    def compute_auth_signature(self, username: str, pk: key.Key) -> bytes:
         b = Buffer()
         b.write_binary(self.session_id)
         b.write_byte(int.to_bytes(SSHMsgUserauthRequest.opcode, 1))
@@ -358,7 +359,7 @@ class SSHClient:
     def _log(self, level, message):
         self.logger.log(level, message)
 
-    async def wait_for_message(self, msg: SSHMessage, timeout=120, silent=False):
+    async def wait_for_message(self, msg: SSHMessage, timeout: int =120, silent: bool=False) -> bool:
         ev = curio.Event()
         self.events[msg.opcode] = ev
         self.logger.info("Waiting for message %s", msg)
@@ -386,7 +387,7 @@ class SSHClient:
         return await self.do_open_channel(m)
 
     @util.timeout
-    async def do_open_channel(self, msg):
+    async def do_open_channel(self, msg: SSHMsgChannelOpen) -> Channel:
         await self.send_message(msg)
         ev = curio.Event()
         self.channel_events[msg.sender_channel] = ev
@@ -397,7 +398,7 @@ class SSHClient:
             raise TypeError(ch.err)
         return ch
 
-    async def run_command(self, cmd):
+    async def run_command(self, cmd: str | list[str]) -> Channel:
         """
         Run a command on the remote server
         :param cmd: command to run
@@ -406,7 +407,7 @@ class SSHClient:
         await ch.run_command(cmd)
         return ch
 
-    async def open_port_forward(self, dest_addr, dest_port, src_addr, src_port):
+    async def open_port_forward(self, dest_addr: str, dest_port: int, src_addr: str, src_port: int) -> None:
         """
         Open a port forward
         :param dest_addr: destination address
@@ -426,7 +427,7 @@ class SSHClient:
         )
         return await self.do_open_channel(m)
 
-    async def open_sftp(self):
+    async def open_sftp(self) -> SFTP:
         """
         Open a new sftp session
         """
@@ -436,7 +437,7 @@ class SSHClient:
         await s.init()
         return s
 
-    async def close(self):
+    async def close(self) -> None:
         tasks = self.tasks.copy()
         for task in tasks:
             await task.cancel()
@@ -448,7 +449,7 @@ class SSHClient:
         await self.sock.close()
         self.closed = True
 
-    async def clean_up_tasks(self):
+    async def clean_up_tasks(self) -> NoReturn:
         while True:
             for task in self.tasks.copy():
                 if task.terminated:
@@ -460,7 +461,7 @@ class SSHClient:
             await curio.sleep(5)
 
     ### handlers
-    async def handle_auth_response(self, msg: SSHMsgUserauthSuccess):
+    async def handle_auth_response(self, msg: SSHMsgUserauthSuccess) -> None:
         self.logger.info(msg)
         if isinstance(msg, SSHMsgUserauthFailure):
             self.authenticated = False
@@ -469,7 +470,7 @@ class SSHClient:
             self.authenticated = True
         await self.auth_event.set()
 
-    async def handle_message_disconnect(self, m: SSHMsgDisconnect):
+    async def handle_message_disconnect(self, m: SSHMsgDisconnect) -> None:
         self.logger.log(logging.INFO, "Received disconnect message (%s)", m.description)
         self.close_reason = m.description
         self.server_closed = True
@@ -480,7 +481,7 @@ class SSHClient:
         await self.close()
         raise RuntimeError("server closed connection: %s" % m.description)
 
-    async def handle_channel_message(self, m: SSHMsgChannelEOF):
+    async def handle_channel_message(self, m: SSHMsgChannelEOF) -> None:
         chan_id = m.recipient_channel
         channel = self.channels.get(chan_id)
         if m.opcode == SSHMsgChannelClose.opcode:
@@ -510,7 +511,7 @@ class SSHClient:
             await channel.set_exit_event(code)
             channel.set_exit_code(code)
 
-    async def handle_channel_data(self, m: SSHMsgChannelData):
+    async def handle_channel_data(self, m: SSHMsgChannelData) -> None:
         data = m.data
         chan_id = m.recipient_channel
         channel = self.channels.get(chan_id)
@@ -524,7 +525,7 @@ class SSHClient:
     async def handle_service_accept(self, svc: SSHMsgServiceAccept):
         self.auth.set_event()
 
-    async def handle_channel_open(self, msg: SSHMsgChannelOpenConfirmation):
+    async def handle_channel_open(self, msg: SSHMsgChannelOpenConfirmation) -> None:
         chid = msg.recipient_channel
         ev = self.channel_events.pop(chid)
         if isinstance(msg, SSHMsgChannelOpenFailure):
@@ -540,7 +541,7 @@ class SSHClient:
         await ev.set()
 
         
-    async def handle_kex_init(self,msg: SSHMsgKexInit):
+    async def handle_kex_init(self,msg: SSHMsgKexInit) -> None:
         self.logger.warning("Kex init received: rekeying...")
         await self.start_kex(server_kex=msg)
         self.tasks.add(await curio.spawn(self.get_packets))

@@ -45,14 +45,14 @@ class RSAKey(Key):
     def pub_from_number(cls, n: int, e: int):
         return cls(pub=rsa.RSAPublicNumbers(e=e, n=n).public_key())
 
-    def verify(self, sig, message, algo=""):
+    def verify(self, sig: bytes, message: bytes, algo: str="") -> bool:
         try:
             self.pub.verify(sig, message, padding.PKCS1v15(), self.HASHES[algo]())
         except InvalidSignature:
             return False
         return True
 
-    def sign(self, message: bytes, algo: str):
+    def sign(self, message: bytes, algo: str) -> bytes:
         return self.pk.sign(
             message, padding=padding.PKCS1v15(), algorithm=self.HASHES[algo]()
         )
@@ -96,11 +96,11 @@ class Ed25519Key(Key):
         assert "ssh-ed25519" in b.read_string()
         return cls(pub=Ed25519PublicKey.from_public_bytes(b.read_binary()))
 
-    def sign(self, message: bytes, algo=None):
+    def sign(self, message: bytes, algo=None) -> bool:
         # algo is ignored, it is there for compatibility with RSAKey.sign
         return self.pk.sign(message)
 
-    def verify(self, sig, message, algo=None):
+    def verify(self, sig: bytes, message: bytes, algo=None) -> bool:
         # algo is ignored, it is there for compatibility with RSAKey.verify
         try:
             self.pub.verify(sig, message)
@@ -115,5 +115,5 @@ class Ed25519Key(Key):
         return b.getvalue()
 
     @property
-    def algo_name(self):
+    def algo_name(self) -> str:
         return "ssh-ed25519"

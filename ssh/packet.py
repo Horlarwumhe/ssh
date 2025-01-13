@@ -7,9 +7,9 @@ from curio import socket
 import curio
 
 from ssh.stream import Buffer
-
+from . import encryption as enc
 from . import message as msg
-
+from . import mac
 DEBUG = logging.DEBUG
 logger = logging.getLogger("ssh")
 
@@ -89,14 +89,14 @@ class Connection:
         self.lock = curio.Lock()
         self.wlock = curio.Lock()
 
-    async def connect(self, host, port):
+    async def connect(self, host: str, port: int) -> None:
         if self.sock is None:
             self.sock = socket.socket()
         await self.sock.connect((host, port))
         self.buf = self.sock.makefile("rb")
         
 
-    async def read(self, size):
+    async def read(self, size: int) -> bytes:
         data = await self.buf.read(size)
         while len(data) < size:
             b = await self.buf.read(size - len(data))
@@ -105,7 +105,7 @@ class Connection:
             data += b
         return data
 
-    async def read_packet(self):
+    async def read_packet(self) -> Packet:
         async with self.lock:
             if self.encrypted:
                 return await self.read_encrypted_packet()
@@ -124,7 +124,7 @@ class Connection:
             self.server_seq_no += 1 & 0xFFFFFFFF
         return p
 
-    async def read_encrypted_packet(self):
+    async def read_encrypted_packet(self) -> Packet:
         decrypt = self.server_enc.decrypt
         addlen = 4 if self.server_enc.etm else 0
         if self.server_enc.etm:
@@ -167,7 +167,7 @@ class Connection:
         pass
 
     # def compute_mac(self,algo,data)
-    async def send_packet(self, data: bytes):
+    async def send_packet(self, data: bytes) -> None:
         async with self.wlock:
             s = ""
             etm = False
@@ -196,24 +196,24 @@ class Connection:
             await self.sock.sendall(data + mac)
             self.seq_no += 1 & 0xFFFFFFFF
 
-    async def send(self, data):
+    async def send(self, data: bytes) -> None:
         await self.sock.send(data)
 
-    async def readline(self):
+    async def readline(self) -> bytes:
         return await self.buf.readline()
 
-    def set_block_size(self, block_size):
+    def set_block_size(self, block_size: int) -> None:
         self.block_size = block_size
 
-    def set_encryptor(self, client, server):
+    def set_encryptor(self, client: enc.AES | enc.ChaCha20Poly1305, server: enc.AES | enc.ChaCha20Poly1305) -> None:
         self.client_enc = client
         self.server_enc = server
 
-    def set_mac_algo(self, client, server):
+    def set_mac_algo(self, client: mac.HMAC, server: mac.HMAC) -> None:
         self.client_mac = client
         self.server_mac = server
 
-    def start_encryption(self):
+    def start_encryption(self)  -> None:
         # return
         self.encrypted = True
         self.block_size = self.client_enc.block_size

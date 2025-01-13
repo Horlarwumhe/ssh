@@ -1,6 +1,7 @@
 import io
 import os
 import sys
+from typing import NoReturn
 from ssh import util
 import curio
 
@@ -83,7 +84,7 @@ class Channel:
         self.tty = True
 
     @util.timeout
-    async def request_shell(self):
+    async def request_shell(self) -> None:
         """
         Request a shell for the channel
         """
@@ -99,7 +100,7 @@ class Channel:
         self.shell = True
 
     @util.timeout
-    async def request_subsystem(self, name):
+    async def request_subsystem(self, name: str) -> None:
         """
         Request a subsystem for the channel
         param name: name of the subsystem
@@ -119,7 +120,7 @@ class Channel:
         if name == "sftp":
             self.sftp = True
 
-    async def request_env(self, name, value):
+    async def request_env(self, name: str, value: str) -> None:
         """
         Request to set an environment variable for the channel
         param name: name of the environment variable
@@ -148,7 +149,7 @@ class Channel:
             await self.request_env(k, v)
 
     @util.check_closed
-    async def send(self, data: str | bytes):
+    async def send(self, data: bytes) -> None:
         """
         Write data to the channel
         """
@@ -156,7 +157,7 @@ class Channel:
         await self.client.send_message(m)
 
     @util.check_closed
-    async def send_message(self, msg):
+    async def send_message(self, msg: MSG.SSHMessage):
         await self.client.send_message(msg)
 
     def is_active(self):
@@ -166,7 +167,7 @@ class Channel:
             return self.exit_code is None
         return True
 
-    async def recv(self, size: int):
+    async def recv(self, size: int) -> bytes:
         """
         Read data from the channel
         """
@@ -187,7 +188,7 @@ class Channel:
             if self.lock.locked():
                 await self.lock.release()
 
-    async def recv_stderr(self, size: int):
+    async def recv_stderr(self, size: int) -> bytes:
         await self.lock2.acquire()
         try:
             data = self.ext_buf.read(size)
@@ -203,7 +204,7 @@ class Channel:
             if self.lock2.locked():
                 await self.lock2.release()
 
-    async def stderr(self, n=-1, block=False):
+    async def stderr(self, n=-1, block=False) -> bytes:
         """
         Read data from the stderr
         """
@@ -218,7 +219,7 @@ class Channel:
                 break
         return data
 
-    async def stdout(self, n=-1, block=False):
+    async def stdout(self, n=-1, block=False) -> bytes:
         """
         Read data from the stdout
         """
@@ -233,7 +234,7 @@ class Channel:
                 break
         return data
 
-    async def wait(self):
+    async def wait(self) -> int:
         """
         If the channel is a command, wait for the command to finish. similar to wait in subprocess
         """
@@ -242,7 +243,7 @@ class Channel:
         await self.exit_event.wait()
         return self.exit_code
 
-    async def set_data(self, data):
+    async def set_data(self, data: bytes) -> None:
         async with self.lock:
             pos = self.buf.tell()
             self.buf.seek(0, os.SEEK_END)
@@ -252,7 +253,7 @@ class Channel:
             await self.data_event.set()
         await self.check_window_size()
 
-    async def set_ext_data(self, data):
+    async def set_ext_data(self, data: bytes) -> None:
         async with self.lock2:
             pos = self.ext_buf.tell()
             self.ext_buf.seek(0, os.SEEK_END)
@@ -263,21 +264,20 @@ class Channel:
         await self.check_window_size()
         
     
-    async def check_window_size(self):
+    async def check_window_size(self) -> None:
         if self.recv_bytes >= self.window_size:
             # This size is mostly reached when using sftp/scp.
             logging.info('window size(%s) reached, adjusting....'%self.window_size)
             await self.client.send_message(MSG.SSHMsgWindowAdjust(recipient_channel=self.remote_id,size=self.window_size))
             self.recv_bytes = 0
 
-
-    def has_data(self):
+    def has_data(self) -> bool:
         """
         Check if there is data to read
         """
         return self.data_event.is_set()
 
-    async def close(self):
+    async def close(self) -> None:
         """
         Close the channel
         """
@@ -292,15 +292,15 @@ class Channel:
         await self.data_event.set()
         await self.ext_data_event.set()
 
-    async def set_eof(self):
+    async def set_eof(self) -> None:
         self.eof = True
         await self.data_event.set()
         await self.ext_data_event.set()
 
-    def set_exit_code(self, exit):
+    def set_exit_code(self, exit: int) -> None:
         self.exit = exit
 
-    async def set_exit_event(self, code):
+    async def set_exit_event(self, code: int) -> None:
         self.exit = code
         await self.exit_event.set()
 
@@ -312,7 +312,7 @@ class Channel:
         await self.request_event.set()
 
     @util.check_closed
-    async def run_interactive_shell(self,tty=True):
+    async def run_interactive_shell(self,tty=True) -> NoReturn:
         """
         Run an interactive shell
         """

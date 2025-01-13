@@ -5,10 +5,10 @@ class HMAC:
     algo: str
     size: int
 
-    def __init__(self, key):
+    def __init__(self, key: bytes):
         self.key = key
 
-    def digest(self, data):
+    def digest(self, data: bytes) -> bytes:
         return hmac.digest(self.key, data, self.algo)
 
 

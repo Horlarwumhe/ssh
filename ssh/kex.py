@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PublicKey,
 )
 
-import ssh.client
+import ssh
 from ssh import message as msg
 from ssh.stream import Buffer
 
@@ -22,8 +22,10 @@ class KexResult:
 
 log = logging.getLogger("ssh")
 
+class Kex:
+    pass
 
-class DHKex:
+class DHKex(Kex):
     name: str  # https://github.com/openssh/openssh-portable/blob/master/kex.h#L53-L67
     key_size: int  # https://datatracker.ietf.org/doc/html/rfc3526#section-2
     P: int
@@ -63,7 +65,6 @@ class DHKex:
 
     def compute_shared_secret(self, f: int, x: int) -> int:
         return pow(f, x, self.P)
-
 
     def compute_signature_hash(self, server_host_key: bytes, e: int, f: int, K: int) -> bytes:
         s = bytes(
@@ -129,14 +130,14 @@ class DHGroup18SHA512(DHKex):
     hash_algo = sha512
 
 
-class Curve25519:
+class Curve25519(Kex):
     name: str = "curve25519-sha256"
     hash_algo: callable = sha256
 
     def __init__(self, client: "ssh.client.SSHClient"):
         self.client = client
 
-    async def start(self):
+    async def start(self) -> KexResult:
         # https://datatracker.ietf.org/doc/html/rfc5656#section-4
         log.log(logging.INFO, f"Using {self.name} key exchange")
         pk, pub = self.generate_key_pair()
@@ -152,7 +153,7 @@ class Curve25519:
         pub = pk.public_key().public_bytes_raw()
         return pk, pub
 
-    async def send_kex_init(self, pub: bytes):
+    async def send_kex_init(self, pub: bytes)-> None:
         req = msg.SSHMsgKexECDHInit(pub_key=pub)
         await self.client.send_message(req)
 
@@ -179,7 +180,7 @@ class Curve25519:
         )
         return type(self).hash_algo(payload)
 
-    def verify_server_signature(self, server_host_key: bytes, sig: bytes, H: bytes):
+    def verify_server_signature(self, server_host_key: bytes, sig: bytes, H: bytes) -> None:
         server_key = self.client.available_server_host_key_algo[
             self.client.server_host_key_algo
         ].from_buffer(Buffer(server_host_key))
