@@ -22,7 +22,7 @@ INFO = logging.INFO
 
 class SSHClient:
     version = "SSH-2.0-to_be_determined"
-    preferred_kex_algo = ""
+    preferred_kex_algo = "curve25519-sha256"
     available_kex_algo: dict[str, kex.DHKex] = {
         "diffie-hellman-group14-sha256": kex.DHGroup14SHA256,
         "diffie-hellman-group16-sha512": kex.DHGroup16SHA512,
@@ -32,7 +32,7 @@ class SSHClient:
         "diffie-hellman-group1-sha1": kex.DHGroup1SHA1,
         "diffie-hellman-group18-sha512": kex.DHGroup18SHA512,
     }
-    preferred_encryption_algo = ""
+    preferred_encryption_algo = "chacha20-poly1305@openssh.com"
     available_encryption_algo: dict[str, enc.AES] = {
         "aes256-ctr": enc.AESCTR256,
         "aes128-ctr": enc.AESCTR128,
@@ -45,8 +45,8 @@ class SSHClient:
         "hmac-sha2-512": mac.HMACSHA512,
         "hmac-sha1": mac.HMACSHA1,
     }
-    preferred_server_host_key_algo = ""
-    available_server_host_key_algo: dict[str, callable] = {
+    preferred_server_host_key_algo = "ssh-ed25519"
+    available_server_host_key_algo: dict[str, key.Key] = {
         "rsa-sha2-512": key.RSAKey,
         "rsa-sha2-256": key.RSAKey,
         "ssh-ed25519": key.Ed25519Key,
