@@ -1,6 +1,7 @@
 import io
 import os
 import pathlib
+from typing import NoReturn
 
 import curio
 

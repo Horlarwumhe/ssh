@@ -1,17 +1,17 @@
-from argparse import ArgumentParser
 import getpass
 import logging
 import os
 import pathlib
+import resource
+import stat
 import sys
+from argparse import ArgumentParser
+
 import curio
+import tqdm
+
 from ssh import SSHClient
 from ssh.sftp import SFTP
-import resource
-import tqdm
-import logging
-import stat
-
 
 fdlimit = resource.getrlimit(resource.RLIMIT_NOFILE)[0] - 20
 bar_format = "{l_bar} {n_fmt}/{total_fmt} {rate_fmt}{postfix}"

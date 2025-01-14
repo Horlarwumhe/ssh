@@ -1,7 +1,7 @@
+import cryptography.exceptions
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.ciphers.algorithms import ChaCha20
 from cryptography.hazmat.primitives.poly1305 import Poly1305
-import cryptography.exceptions
 
 
 class AES:

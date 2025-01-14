@@ -1,14 +1,15 @@
 import io
+import logging
 import os
 import sys
 from typing import NoReturn
-from ssh import util
+
 import curio
 
+from ssh import util
 
 from . import message as MSG
 
-import logging
 
 class Channel:
     ids_pool = iter(range(1, 2 << 31))

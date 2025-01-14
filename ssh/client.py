@@ -1,10 +1,11 @@
 import logging
 import os
-from itertools import chain
 import signal
+from itertools import chain
 from typing import NoReturn, Optional
-from cryptography.hazmat.primitives.asymmetric import rsa
+
 import curio
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from ssh import util
 from ssh.channel import Channel, ChannelError

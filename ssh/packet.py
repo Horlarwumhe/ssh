@@ -1,15 +1,18 @@
+import hmac
 import io
 import logging
 import os
 import struct
 
-from curio import socket
 import curio
+from curio import socket
 
 from ssh.stream import Buffer
+
 from . import encryption as enc
-from . import message as msg
 from . import mac
+from . import message as msg
+
 DEBUG = logging.DEBUG
 logger = logging.getLogger("ssh")
 

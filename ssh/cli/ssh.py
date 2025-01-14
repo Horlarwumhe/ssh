@@ -1,11 +1,12 @@
 import getpass
 import logging
 import os
-import sys
-from curio import socket
 import socket as pysock
-import curio
+import sys
 from argparse import ArgumentParser
+
+import curio
+from curio import socket
 
 from ssh import SSHClient
 
