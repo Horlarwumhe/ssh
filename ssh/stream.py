@@ -14,8 +14,7 @@ class Buffer(io.BytesIO):
         return self.read_string().split(",")
 
     def read_binary(self) -> bytes:
-        size = self.read_int()
-        return self.read(size)
+        return self.read(self.read_int())
 
     def read_string(self) -> str:
         return self.read_binary().decode()

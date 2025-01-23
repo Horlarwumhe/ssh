@@ -6,6 +6,15 @@ int64 = int
 ATTRS = object
 
 
+class SFTPMessage:
+    
+    def __bytes__(self):
+        return NotImplemented
+    @classmethod
+    def parse(cls,b:Buffer) -> "SFTPMessage":
+        return NotImplemented
+
+
 @dataclass
 class SFTPAttributes:
     flags: int = 0
