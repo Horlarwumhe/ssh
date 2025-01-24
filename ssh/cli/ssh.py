@@ -9,7 +9,7 @@ import curio
 from curio import socket
 
 from ssh import SSHClient
-
+from ssh.exc import AuthenticationError
 
 def main():
     parser = ArgumentParser(prog="pyssh")
@@ -138,7 +138,7 @@ async def cli_main(args):
                     passwd = getpass.getpass("password for %s@%s: " % (user, host))
                     await ssh.login(user, password=passwd)
                     break
-                except Exception as e:
+                except AuthenticationError as e:
                     sys.stdout.write("login failed: %s\n" % e)
             else:
                 sys.stdout.write("login failed:\n")

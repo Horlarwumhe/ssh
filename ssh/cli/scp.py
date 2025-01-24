@@ -11,6 +11,7 @@ import curio
 import tqdm
 
 from ssh import SSHClient
+from ssh.exc import AuthenticationError
 from ssh.sftp import SFTP
 
 fdlimit = resource.getrlimit(resource.RLIMIT_NOFILE)[0] - 20
@@ -233,7 +234,7 @@ async def cli_main(args):
                     passwd = getpass.getpass("password for %s@%s: " % (user, host))
                     await ssh.login(user, password=passwd)
                     break
-                except Exception as e:
+                except AuthenticationError as e:
                     sys.stdout.write("login failed: %s\n" % e)
             else:
                 sys.stdout.write("login failed:\n")

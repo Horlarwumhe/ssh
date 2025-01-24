@@ -13,7 +13,7 @@ from ssh.sftp import SFTP
 from ssh.stream import Buffer
 
 from . import encryption as enc
-from . import kex, key, mac
+from . import kex, key, mac, exc
 from .message import *
 from .packet import Connection
 
@@ -339,8 +339,8 @@ class SSHClient:
         await self.auth_event.wait()
         if not self.authenticated:
             if self.server_closed:
-                raise TypeError("Authentication Failed (%s)" % self.close_reason)
-            raise TypeError("Authencation error")
+                raise exc.ServerDisconnected("%s" % self.close_reason)
+            raise exc.AuthenticationError("Authencation error")
         return True
 
     def compute_auth_signature(self, username: str, pk: key.Key) -> bytes:
