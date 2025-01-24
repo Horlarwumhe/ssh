@@ -51,7 +51,6 @@ class SSHClient:
         "rsa-sha2-512": key.RSAKey,
         "rsa-sha2-256": key.RSAKey,
         "ssh-ed25519": key.Ed25519Key,
-        
     }
 
     def __init__(self) -> None:
@@ -136,7 +135,7 @@ class SSHClient:
                 self.logger.info("new kex init")
                 break
 
-    async def start_kex(self,server_kex: SSHMsgKexInit | None = None) -> None:
+    async def start_kex(self, server_kex: SSHMsgKexInit | None = None) -> None:
         def insert_preferred_algo(algo, preferred):
             if preferred:
                 algo.insert(0, preferred)
@@ -159,11 +158,16 @@ class SSHClient:
             languages_server_to_client=list(),
             first_kex_packet_follows=False,
         )
-        
+
         insert_preferred_algo(req.kex_algo, self.preferred_kex_algo)
-        insert_preferred_algo(req.encryption_algo_client_to_server, self.preferred_encryption_algo)
-        insert_preferred_algo(req.encryption_algo_server_to_client, self.preferred_encryption_algo)
-        insert_preferred_algo(req.server_host_key_algo, self.preferred_server_host_key_algo)
+        insert_preferred_algo(req.encryption_algo_client_to_server, self.preferred_encryption_algo
+        )
+        insert_preferred_algo(
+            req.encryption_algo_server_to_client, self.preferred_encryption_algo
+        )
+        insert_preferred_algo(
+            req.server_host_key_algo, self.preferred_server_host_key_algo
+        )
         insert_preferred_algo(req.mac_algo_client_to_server, self.preferred_mac_algo)
         insert_preferred_algo(req.mac_algo_server_to_client, self.preferred_mac_algo)
 
@@ -185,7 +189,6 @@ class SSHClient:
         await self.end_kex_init()
         self.set_ciphers(kex_result.K, kex_result.H)
         self.sock.start_encryption()
-        
 
     def set_algos(self, server_kex: SSHMsgKexInit) -> None:
         def select_algo(server, available, preferred):
@@ -252,7 +255,7 @@ class SSHClient:
             encryptor(server_to_client_key, server_to_client_iv),
         )
 
-    async def end_kex_init(self):
+    async def end_kex_init(self) -> None:
         req = SSHMsgNewKeys()
         await self.sock.send_packet(bytes(req))
         packet = await self.sock.read_packet()
@@ -262,7 +265,7 @@ class SSHClient:
     async def send_message(self, msg: SSHMessage) -> None:
         await self.sock.send_packet(bytes(msg))
 
-    async def auth_password(self, username: str, password: str ="") -> None:
+    async def auth_password(self, username: str, password: str = "") -> None:
         """
         Authenticate using password
         :param username: username
@@ -283,7 +286,7 @@ class SSHClient:
         await self.do_auth()
         # self.wait_for_message()
 
-    async def auth_public_key(self, username: str, key_path: str="") -> None:
+    async def auth_public_key(self, username: str, key_path: str = "") -> None:
         """
         Authenticate using public key
         :param username: username
@@ -513,18 +516,14 @@ class SSHClient:
             channel.set_exit_code(code)
 
     async def handle_channel_data(self, m: SSHMsgChannelData) -> None:
-        data = m.data
         chan_id = m.recipient_channel
         channel = self.channels.get(chan_id)
         if isinstance(m, SSHMsgChannelExtendData):
             self.logger.log(INFO, "Channel  data stderr (%s)", m.recipient_channel)
-            await channel.set_ext_data(data)
+            await channel.set_ext_data(m.data)
         else:
             self.logger.log(INFO, "Channel  data stdout (%s)", m.recipient_channel)
-            await channel.set_data(data)
-
-    async def handle_service_accept(self, svc: SSHMsgServiceAccept):
-        self.auth.set_event()
+            await channel.set_data(m.data)
 
     async def handle_channel_open(self, msg: SSHMsgChannelOpenConfirmation) -> None:
         chid = msg.recipient_channel
@@ -541,8 +540,7 @@ class SSHClient:
             self.logger.info("Channel open success %s", chid)
         await ev.set()
 
-        
-    async def handle_kex_init(self,msg: SSHMsgKexInit) -> None:
+    async def handle_kex_init(self, msg: SSHMsgKexInit) -> None:
         self.logger.warning("Kex init received: rekeying...")
         await self.start_kex(server_kex=msg)
         self.tasks.add(await curio.spawn(self.get_packets))

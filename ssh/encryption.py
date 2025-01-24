@@ -76,26 +76,26 @@ class ChaCha20Poly1305:
         payload = self.do_decrypt(self.key2, nonce, ciphertext)
         return payload
 
-    def encrypt(self, plaintext: bytes, seq_num: int)-> bytes:
+    def encrypt(self, plaintext: bytes, seq_num: int) -> bytes:
         nonce = ZERO + int.to_bytes(seq_num, 8)  # nonce for size
         size = self.do_encrypt(self.key1, nonce, plaintext[:4])
         nonce = ONE + int.to_bytes(seq_num, 8)  # nonce for payload
         payload = self.do_encrypt(self.key2, nonce, plaintext[4:])
         return size + payload
 
-    def decrypt_size(self, ciphertext: bytes, seq_num: int)-> bytes:
+    def decrypt_size(self, ciphertext: bytes, seq_num: int) -> bytes:
         nonce = ZERO + int.to_bytes(seq_num, 8)  # nonce for size
         return self.do_decrypt(self.key1, nonce, ciphertext)
 
-    def do_encrypt(self, key: bytes, nonce: bytes, plaintext: bytes)-> bytes:
+    def do_encrypt(self, key: bytes, nonce: bytes, plaintext: bytes) -> bytes:
         cipher = Cipher(ChaCha20(key, nonce), None)
         return cipher.encryptor().update(plaintext)
 
-    def do_decrypt(self, key: bytes, nonce: bytes, ciphertext: bytes)-> bytes:
+    def do_decrypt(self, key: bytes, nonce: bytes, ciphertext: bytes) -> bytes:
         cipher = Cipher(ChaCha20(key, nonce), None)
         return cipher.decryptor().update(ciphertext)
 
-    def verify(self, ciphertext: bytes, mac: bytes, seq_num: int)-> bool:
+    def verify(self, ciphertext: bytes, mac: bytes, seq_num: int) -> bool:
         key = self.generate_mac_key(seq_num)
         try:
             Poly1305.verify_tag(key, ciphertext, mac)
@@ -103,10 +103,10 @@ class ChaCha20Poly1305:
             return False
         return True
 
-    def digest(self, ciphertext: bytes, seq_num: int)-> bytes:
+    def digest(self, ciphertext: bytes, seq_num: int) -> bytes:
         key = self.generate_mac_key(seq_num)
         return Poly1305.generate_tag(key, ciphertext)
 
-    def generate_mac_key(self, seq_num: int)-> bytes:
+    def generate_mac_key(self, seq_num: int) -> bytes:
         nonce = ZERO + int.to_bytes(seq_num, 8)
         return self.do_encrypt(self.key2, nonce, b"\x00" * 32)[:32]

@@ -49,7 +49,7 @@ class SFTP:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, file),resp.error)
         return SFTPFile(resp.handle, mode, buffering, self)
 
-    async def mkdir(self, path: str, mode: int =0o777, parents=False) -> None:
+    async def mkdir(self, path: str, mode: int = 0o777, parents=False) -> None:
         """
         Create a directory on the remote server.
         :param path: the path of the directory to create

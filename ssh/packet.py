@@ -97,7 +97,6 @@ class Connection:
             self.sock = socket.socket()
         await self.sock.connect((host, port))
         self.buf = self.sock.makefile("rb")
-        
 
     async def read(self, size: int) -> bytes:
         data = await self.buf.read(size)
@@ -216,7 +215,7 @@ class Connection:
         self.client_mac = client
         self.server_mac = server
 
-    def start_encryption(self)  -> None:
+    def start_encryption(self) -> None:
         # return
         self.encrypted = True
         self.block_size = self.client_enc.block_size

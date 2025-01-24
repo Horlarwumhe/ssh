@@ -19,7 +19,7 @@ class Key:
             pk = serialization.load_pem_private_key(data, password)
         if isinstance(pk, rsa.RSAPrivateKey):
             return RSAKey(pk=pk, pub=pk.public_key())
-        elif isinstance(pk, Ed25519PrivateKey):
+        if isinstance(pk, Ed25519PrivateKey):
             return Ed25519Key(pk=pk, pub=pk.public_key())
         raise ValueError("Unsupported key type %s" % type(pk))
 
@@ -46,7 +46,7 @@ class RSAKey(Key):
     def pub_from_number(cls, n: int, e: int):
         return cls(pub=rsa.RSAPublicNumbers(e=e, n=n).public_key())
 
-    def verify(self, sig: bytes, message: bytes, algo: str="") -> bool:
+    def verify(self, sig: bytes, message: bytes, algo: str = "") -> bool:
         try:
             self.pub.verify(sig, message, padding.PKCS1v15(), self.HASHES[algo]())
         except InvalidSignature:

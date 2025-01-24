@@ -42,7 +42,7 @@ class Channel:
         return next(cls.ids_pool)
 
     @util.timeout
-    async def run_command(self, cmd):
+    async def run_command(self, cmd: str | list[str]):
         if isinstance(cmd, (list, tuple)):
             cmd = " ".join(cmd)
         if self.type != "session":
@@ -183,8 +183,7 @@ class Channel:
                 await self.lock.release()
                 await self.data_event.wait()
                 return self.buf.read(size)
-            else:
-                return data
+            return data
         finally:
             if self.lock.locked():
                 await self.lock.release()
@@ -199,8 +198,7 @@ class Channel:
                 await self.lock2.release()
                 await self.ext_data_event.wait()
                 return self.ext_buf.read(size)
-            else:
-                return data
+            return data
         finally:
             if self.lock2.locked():
                 await self.lock2.release()

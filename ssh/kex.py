@@ -152,7 +152,7 @@ class Curve25519(Kex):
         pub = pk.public_key().public_bytes_raw()
         return pk, pub
 
-    async def send_kex_init(self, pub: bytes)-> None:
+    async def send_kex_init(self, pub: bytes) -> None:
         req = msg.SSHMsgKexECDHInit(pub_key=pub)
         await self.client.send_message(req)
 
