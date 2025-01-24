@@ -265,3 +265,41 @@ async def main():
 curio.run(main)
     
 ```
+
+### CLI Usage
+
+The module comes with two commands `pyssh` and `pyscp` similar to `ssh` and `scp` respectively
+
+```sh
+pyssh user@host -i /path/to/key
+```
+`pyssh` will prompt for password if `-i` is not provided
+
+Use port-forward with `-L` option
+
+```sh
+pyssh user@host -i /path/to/key -L 8080:ip-api.com:80
+```
+
+Run command with `-c` option
+
+```sh
+pyssh user@host -i /path/to/key -c "ls /"
+```
+
+`pyscp` usage is similar to `scp`
+
+Copy files from remote to local
+
+```sh
+pyscp user@host:/path/to/file /path/to/destination -i /path/to/key
+```
+`/path/to/file` can be a directory
+
+Copy files from local to remote
+
+```sh
+pyscp /path/to/file1 /path/to/file2 user@host:/path/to/destination -i /path/to/key
+```
+
+`/path/to/file1` and `/path/to/file2` can be a directory. Use `-r` to copy directories recursively
