@@ -4,7 +4,22 @@ from cryptography.hazmat.primitives.ciphers.algorithms import ChaCha20
 from cryptography.hazmat.primitives.poly1305 import Poly1305
 
 
-class AES:
+class CipherBase:
+    def __init__(self, key: bytes, iv: bytes):
+       pass
+
+    def encrypt(self, data: bytes) -> bytes:
+        return NotImplemented
+
+    def decrypt(self, data: bytes) -> bytes:
+        return NotImplemented
+    
+    def decrypt_size(self, data: bytes) -> bytes:
+        return NotImplemented
+    
+
+
+class AES(CipherBase):
     key_size: int
     mode: modes.Mode
     algo: algorithms.AES
@@ -60,7 +75,7 @@ ZERO = int.to_bytes(0, 8, "little")
 
 
 # https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.chacha20poly1305?annotate=HEAD
-class ChaCha20Poly1305:
+class ChaCha20Poly1305(CipherBase):
     key_size = 512 // 8
     block_size = 8
     etm = True
