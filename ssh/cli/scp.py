@@ -111,7 +111,7 @@ async def copy_file_from_remote(sftp,dest,file,lock):
             dest = pathlib.Path(dest) / relpath
             dest.parent.mkdir(parents=True,exist_ok=True)
             size = (await sftp.stat(str(abspath))).st_size
-            chunck = 31 * 1024  # channel max packet is 32kb
+            chunck = 1024 * 1024
             with tqdm.tqdm(
                 bar_format=bar_format,
                 total=size,
