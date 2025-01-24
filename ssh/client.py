@@ -134,6 +134,9 @@ class SSHClient:
                 # rekeying. kexinit after inital kexinit. 
                 self.logger.info("new kex init")
                 break
+            if msg.opcode == SSHMsgDisconnect.opcode:
+                self.logger.info("disconnecting %s" % msg.description)
+                break
 
     async def start_kex(self, server_kex: SSHMsgKexInit | None = None) -> None:
         def insert_preferred_algo(algo, preferred):
