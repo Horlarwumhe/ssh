@@ -77,6 +77,8 @@ class SSHClient:
         self.close_reason = ""
         self.timeout = 5
         self.rekey = False
+        self.remote_version = ""
+        self.peer = None
 
         self.message_handlers = {
             SSHMsgDisconnect.opcode: self.handle_message_disconnect,
@@ -101,6 +103,7 @@ class SSHClient:
         :param port: port
         """
         await self.sock.connect(host, port)
+        self.peer = '%s:%s'%(host,port)
         while True:
             line = await self.sock.readline()
             if line.startswith(b"SSH-"):

@@ -384,7 +384,7 @@ class Channel:
             task2 = await curio.spawn(recv_from_stderr)
             await task2.join()
             await task.join()
-        sys.stdout.write("connection closed\n")
+        sys.stdout.write("connection to %s closed\n"%self.client.peer)
 
 
 class ChannelError(Channel):
