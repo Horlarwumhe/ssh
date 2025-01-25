@@ -54,13 +54,11 @@ class DHKex(Kex):
 
     async def send_kex_init(self, e: int) -> None:
         req = msg.SSHMsgKexDHInit(e=e)
-        await self.client.sock.send_packet(bytes(req))
+        await self.client.send_message(req)
 
     async def receive_kex_reply(self) -> msg.SSHMessageKexDHReply:
         packet = await self.client.sock.read_packet()
-        m = Buffer(packet.payload)
-        resp = msg.SSHMessageKexDHReply.parse(m)
-        return resp
+        return msg.SSHMessageKexDHReply.parse(Buffer(packet.payload))
 
     def compute_shared_secret(self, f: int, x: int) -> int:
         return pow(f, x, self.P)
