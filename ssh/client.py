@@ -129,7 +129,7 @@ class SSHClient:
                 await ev.set()
             fn = self.message_handlers.get(msg.opcode)
             if fn:
-                self.logger.log(DEBUG, "calling handler for %s", msg)
+                self.logger.log(DEBUG, "calling handler for %s", msg.__class__)
                 self.tasks.add(await curio.spawn(fn, msg))
             else:
                 self.logger.log(logging.INFO, "handler not found %s", msg.__class__)
@@ -391,7 +391,7 @@ class SSHClient:
         m = SSHMsgChannelOpen(
             type="session",
             sender_channel=chid,
-            max_packet=32768 // 2,
+            max_packet=32768,
             window_size=2 << 31 - 1,
         )
         return await self.do_open_channel(m)
