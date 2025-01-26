@@ -158,7 +158,7 @@ async def cli_main(args):
         # disable logging in shell
         logging.disable(level=logging.INFO)
         try:
-            await session.run_interactive_shell(tty=not args.T)
+            code = await session.run_interactive_shell(tty=not args.T)
         except Exception as e:
             print(e)
             exit(1)
@@ -168,6 +168,8 @@ async def cli_main(args):
                 await task.join()
             except curio.errors.TaskError:
                 pass
+        sys.stdout.write("connection to %s closed\n"%ssh.peer)
+        exit(code)
 
 
 if __name__ == "__main__":

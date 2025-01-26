@@ -311,7 +311,7 @@ class Channel:
         await self.request_event.set()
 
     @util.check_closed
-    async def run_interactive_shell(self,tty=True) -> NoReturn:
+    async def run_interactive_shell(self, tty=True) -> int:
         """
         Run an interactive shell
         """
@@ -384,8 +384,7 @@ class Channel:
             task2 = await curio.spawn(recv_from_stderr)
             await task2.join()
             await task.join()
-        sys.stdout.write("connection to %s closed\n"%self.client.peer)
-
+        return self.exit_code
 
 class ChannelError(Channel):
     def __init__(self, err):
