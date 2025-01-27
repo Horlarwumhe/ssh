@@ -207,27 +207,21 @@ class Channel:
         """
         Read data from the stderr
         """
-        if not block:
-            return await self.recv_stderr(n)
-        data = b""
-        n = -1  # n should be -1 to read all data
-        while True:
-            d = await self.recv_stderr(n)
-            data += d
-            if d == b"":
-                break
-        return data
+        return await self._read_data(self.recv_stderr, n, block)
 
     async def stdout(self, n=-1, block=False) -> bytes:
         """
         Read data from the stdout
         """
+        return await self._read_data(self.recv, n, block)
+    
+    async def _read_data(self,fn, n: int,block: bool) -> bytes:
         if not block:
-            return await self.recv(n)
+            return await fn(n)
         data = b""
         n = -1  # n should be -1 to read all data
         while True:
-            d = await self.recv(n)
+            d = await fn(n)
             data += d
             if d == b"":
                 break
