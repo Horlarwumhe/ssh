@@ -2,10 +2,9 @@ import logging
 import os
 import signal
 from itertools import chain
-from typing import NoReturn, Optional
+from typing import NoReturn, Optional, Set
 
 import curio
-from cryptography.hazmat.primitives.asymmetric import rsa
 
 from ssh import util
 from ssh.channel import Channel, ChannelError
@@ -65,11 +64,11 @@ class SSHClient:
         self.server_kex_init = None
         self.kex_result = None
         self.session_id = None
-        self.tasks = set()
+        self.tasks: Set[curio.Task] = set()
         self.events: dict[int, curio.Event] = {}
         self.close_event = curio.Event()
         self.channel_events: dict[int, curio.Event] = {}
-        self.channels = {}
+        self.channels: dict[int, Channel] = {}
         self.task_event = curio.Event()
         self.auth_event = curio.Event()
         self.authenticated = False
