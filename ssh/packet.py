@@ -207,7 +207,7 @@ class Connection:
     def set_block_size(self, block_size: int) -> None:
         self.block_size = block_size
 
-    def set_encryptor(self, client: enc.AES | enc.ChaCha20Poly1305, server: enc.AES | enc.ChaCha20Poly1305) -> None:
+    def set_encryptor(self, client: enc.CipherBase, server: enc.CipherBase) -> None:
         self.client_enc = client
         self.server_enc = server
 
