@@ -6,8 +6,10 @@ import struct
 
 import curio
 from curio import socket
-
-from ssh.stream import Buffer
+try:
+    from python_socks.async_.curio import Proxy
+except ImportError:
+    Proxy = None
 
 from . import encryption as enc
 from . import mac
@@ -80,7 +82,7 @@ class Connection:
     recv_size = 2048
     block_size = 8
 
-    def __init__(self) -> None:
+    def __init__(self,proxy=None) -> None:
         self.sock = None
         self.buf = None
         self.seq_no = 0
@@ -91,11 +93,19 @@ class Connection:
         self.server_enc = self.client_enc = None
         self.lock = curio.Lock()
         self.wlock = curio.Lock()
+        self.proxy = None
+        if proxy:
+            host,port = proxy.split(":")
+            self.proxy = "socks5://%s:%s"%(host,port)
 
     async def connect(self, host: str, port: int) -> None:
         if self.sock is None:
-            self.sock = socket.socket()
-        await self.sock.connect((host, port))
+            if self.proxy:
+                proxy = Proxy.from_url(self.proxy)
+                self.sock = await proxy.connect(dest_host=host, dest_port=port)
+            else:
+                self.sock = socket.socket()
+                await self.sock.connect((host, port))
         self.buf = self.sock.makefile("rb")
 
     async def read(self, size: int) -> bytes:

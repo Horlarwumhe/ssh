@@ -25,6 +25,7 @@ def main():
     parser.add_argument("-i", "--identity", help="Private key file")
     parser.add_argument("-p", dest="port", default=22, type=int)
     parser.add_argument("-r", "--recursive", dest="recursive", action="store_true")
+    parser.add_argument("--proxy",help="use socks5 proxy to connect. format is host:port")
     args = parser.parse_args()
     key = args.identity
     if key and not os.path.exists(key):
@@ -197,6 +198,7 @@ async def copy_file_to_remote(sftp: SFTP, dest, file, lock):
 async def cli_main(args):
     # user,host = args.host.split("@")
     port = args.port
+    proxy = args.proxy
     src = set(args.src)  # convert to set to remove duplicate src
     if "@" in args.dest:
         # dest remote
@@ -219,7 +221,7 @@ async def cli_main(args):
         sys.stderr.write("Invalid host format. Must be  user@host:/path/\n")
         exit(1)
 
-    async with SSHClient() as ssh:
+    async with SSHClient(proxy=proxy) as ssh:
         await ssh.connect(host, port)
         use_password = True
         if args.identity:

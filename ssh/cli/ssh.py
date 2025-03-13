@@ -27,6 +27,7 @@ def main():
         help="local port forwarding. [local]:localport:dest:destport",
     )
     parser.add_argument("-T",help= "disable pseudo-tty allocation", action="store_true")
+    parser.add_argument('--proxy',help="use socks5 proxy to connect. format is host:port")
     args = parser.parse_args()
     try:
         args.host.split("@")
@@ -121,7 +122,8 @@ def setup_socket(host, port):
 
 async def cli_main(args):
     user, host = args.host.split("@")
-    async with SSHClient() as ssh:
+    proxy = args.proxy
+    async with SSHClient(proxy=proxy) as ssh:
         if args.verbose:
             logging.basicConfig(level=logging.DEBUG)
         await ssh.connect(host, args.port)

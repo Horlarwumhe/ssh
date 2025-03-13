@@ -52,8 +52,8 @@ class SSHClient:
         "ssh-ed25519": key.Ed25519Key,
     }
 
-    def __init__(self) -> None:
-        self.sock = Connection()
+    def __init__(self,proxy=None) -> None:
+        self.sock = Connection(proxy=proxy)
         self.logger = logging.getLogger("ssh")
         self.kex_algo = None
         self.server_host_key_algo = None
