@@ -156,7 +156,10 @@ class Connection:
                 + payload
                 + padding
             )
-            assert mac == my_mac, "mac mismatch: %s != %s" % (mac.hex(), my_mac.hex())
+            assert hmac.compare_digest(mac, my_mac), "mac mismatch: %s.... != %s...." % (
+                mac.hex()[:20],
+                my_mac.hex()[:20],
+            )
         logger.log(
             logging.DEBUG,
             f"[incoming packet_length={size} opcode={code_to_desc(p.opcode)}]",
