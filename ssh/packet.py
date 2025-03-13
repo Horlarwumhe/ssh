@@ -159,22 +159,15 @@ class Connection:
             assert mac == my_mac, "mac mismatch: %s != %s" % (mac.hex(), my_mac.hex())
         logger.log(
             logging.DEBUG,
-            f"[incoming encrypted packet_length={size} opcode={code_to_desc(p.opcode)}]",
+            f"[incoming packet_length={size} opcode={code_to_desc(p.opcode)}]",
         )
-        # self.server_enc.finalize()
         self.server_seq_no += 1 & 0xFFFFFFFF
         return p
 
-    async def send_encrypted_packet(self):
-        pass
-
-    # def compute_mac(self,algo,data)
     async def send_packet(self, data: bytes) -> None:
         async with self.wlock:
-            s = ""
             etm = False
             if self.encrypted:
-                s = "encrypted"
                 etm = self.client_enc.etm
             cmd = code_to_desc(data[0])
             p = Packet.build(data, block_size=self.block_size, etm=etm)
@@ -185,7 +178,7 @@ class Connection:
             )
             logger.log(
                 logging.DEBUG,
-                f"[{s} outgoing] {cmd=} {p.packet_length=} {len(data)=} {p.padding_length=}",
+                f"[outgoing] {cmd=} {p.packet_length=} {len(data)=} {p.padding_length=}",
             )
             mac = b""
             if self.encrypted:

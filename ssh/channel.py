@@ -370,7 +370,7 @@ class Channel:
                 await task.cancel()
                 try:
                     await task.join()
-                except Exception:
+                except curio.errors.TaskError:
                     pass
         else:
             # No tty, recieve from both stdout and stderr
