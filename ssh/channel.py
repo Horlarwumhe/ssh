@@ -42,82 +42,59 @@ class Channel:
         return next(cls.ids_pool)
 
     @util.timeout
-    async def run_command(self, cmd: str | list[str]):
-        if isinstance(cmd, (list, tuple)):
-            cmd = " ".join(cmd)
-        if self.type != "session":
-            # TODO
-            pass
+    async def _send_request(self, request_type: str, **kwargs) -> None:
         self.request_event.clear()
         msg = MSG.SSHMsgChannelRequest(
-            recipient_channel=self.remote_id, type="exec", want_reply=True, command=cmd
+            recipient_channel=self.remote_id,
+            type=request_type,
+            want_reply=True,
+            **kwargs
         )
         await self.send_message(msg)
         await self.request_event.wait()
         if not self.request_success:
-            raise RuntimeError("Failed to run command")
+            raise RuntimeError(f"Request for {request_type} failed.")
         self.request_success = None
+
+    async def run_command(self, cmd: str | list[str]) -> None:
+        """
+        Run a command on the remote server.
+        """
+        if isinstance(cmd, (list, tuple)):
+            cmd = " ".join(cmd)
+        await self._send_request("exec", command=cmd)
         self.is_exec = True
 
-    @util.timeout
+
     async def request_tty(
         self, term="xterm-256color", width=80, height=24, width_pixels=0, height_pixels=0
     ):
         """
         Request a tty for the channel
         """
-        self.request_event.clear()
-        msg = MSG.SSHMsgChannelRequest(
-            recipient_channel=self.remote_id,
-            type="pty-req",
-            want_reply=True,
+        await self._send_request(
+            "pty-req",
             width_char=width,
             heigth_char=height,
             width_pixel=width_pixels,
             heigth_pixel=height_pixels,
             term_env_var=term,
         )
-        await self.send_message(msg)
-        await self.request_event.wait()
-        if not self.request_success:
-            raise RuntimeError("Failed to request for tty")
-        self.request_success = None
         self.tty = True
 
-    @util.timeout
     async def request_shell(self) -> None:
         """
         Request a shell for the channel
         """
-        self.request_event.clear()
-        msg = MSG.SSHMsgChannelRequest(
-            recipient_channel=self.remote_id, type="shell", want_reply=True
-        )
-        await self.send_message(msg)
-        await self.request_event.wait()
-        if not self.request_success:
-            raise RuntimeError("Failed to request for shell")
-        self.request_success = None
+        await self._send_request("shell")
         self.shell = True
 
-    @util.timeout
     async def request_subsystem(self, name: str) -> None:
         """
         Request a subsystem for the channel
         param name: name of the subsystem
         """
-        self.request_event.clear()
-        msg = MSG.SSHMsgChannelRequest(
-            recipient_channel=self.remote_id,
-            type="subsystem",
-            want_reply=True,
-            subsystem_name=name,
-        )
-        await self.send_message(msg)
-        await self.request_event.wait()
-        if not self.request_success:
-            raise RuntimeError("Failed to open subsystem")
-        self.request_success = None
+        await self._send_request("subsystem", subsystem_name=name)
         if name == "sftp":
             self.sftp = True
 
