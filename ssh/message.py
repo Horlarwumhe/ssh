@@ -15,7 +15,7 @@ class SSHMessage:
         )
 
     @classmethod
-    def parse(self, buf):
+    def parse(cls, buf):
         return NotImplemented
 
 
@@ -137,7 +137,7 @@ class SSHMsgIgnore(SSHMessage):
     opcode = 2
 
     @classmethod
-    def _parse(cls, data):
+    def parse(cls, data):
         return cls()
 
 
