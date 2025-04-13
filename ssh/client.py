@@ -317,7 +317,27 @@ class SSHClient:
         await self.send_message(auth)
         await self.do_auth()
 
-    async def login(self, username, password=None, key=None):
+    async def auth_none(self, username: str) -> None:
+        """
+        Authenticate using none method
+        :param username: username
+        """
+        svc = SSHMsgServiceRequest(service_name="ssh-userauth")
+        await self.send_message(svc)
+        if not await self.wait_for_message(SSHMsgServiceAccept, 5, silent=True):
+            raise TypeError("service request timeout auth failed")
+        auth = SSHMsgUserauthRequest(
+            username=username,
+            service_name="ssh-connection",
+            method_name="none",
+            flag=False,
+        )
+        await self.send_message(auth)
+        await self.do_auth()
+
+    async def login(
+        self, username: str, password: Optional[str] = None, key: Optional[str] = None
+    ) -> None:
         """
         Authenticate using password or public key
         :param username: username
@@ -331,7 +351,7 @@ class SSHClient:
         elif password is not None:
             await self.auth_password(username, password)
         else:
-            raise ValueError("password or key required")
+            await self.auth_none(username)
 
     @util.timeout
     async def do_auth(self) -> bool:

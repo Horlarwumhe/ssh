@@ -31,7 +31,7 @@ class SSHMsgUserauthRequest(SSHMessage):
     #   if method name is publickey
     pub_key_algo: str = b""
     pub_key: bytes = b""
-    signatrue: bytes = b""  # if self.boolean is true
+    signatrue: bytes = b""  # if self.flag is true
     ########################
 
     ##### password method_name
@@ -43,10 +43,11 @@ class SSHMsgUserauthRequest(SSHMessage):
         r.write_string(self.username)
         r.write_string(self.service_name)
         r.write_string(self.method_name)
-        r.write_bool(self.flag)
         if self.method_name == "password":
+            r.write_bool(self.flag)
             r.write_string(self.password)
         elif self.method_name == "publickey":
+            r.write_bool(self.flag)
             r.write_string(self.pub_key_algo)
             r.write_binary(self.pub_key)
             if self.flag:
