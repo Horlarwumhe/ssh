@@ -31,6 +31,10 @@ class SSHClient:
         "diffie-hellman-group14-sha1": kex.DHGroup14SHA1,
         "diffie-hellman-group1-sha1": kex.DHGroup1SHA1,
         "diffie-hellman-group18-sha512": kex.DHGroup18SHA512,
+        "ecdh-sha2-nistp256": kex.ECDHNISTP256,
+        "ecdh-sha2-nistp384": kex.ECDHNISTP384,
+        "ecdh-sha2-nistp521": kex.ECDHNISTP521,
+        
     }
     preferred_encryption_algo = "chacha20-poly1305@openssh.com"
     available_encryption_algo: dict[str, enc.AES] = {
