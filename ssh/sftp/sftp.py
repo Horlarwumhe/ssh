@@ -101,6 +101,17 @@ class SFTP:
         else:
             raise OSError("[error %s] %s %s" % (resp.error, resp.message, path),resp.error)
 
+            )
+    async def create(self,filename: str, mode: int=0o644):
+        '''
+        create a file on the remote server. This is similar to os.create
+        :param filename: the name of the file to create
+        :param mode: the permissions of the file (e.g., 0o644)
+        '''
+        f = await self.open(filename,"r")
+        await f.close()
+        await self.chmod(filename,mode)
+    
     async def stat(self, path: str) -> os.stat_result:
         """
         Get the status of a file on the remote server. This is similar to os.stat
