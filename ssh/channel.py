@@ -104,19 +104,7 @@ class Channel:
         param name: name of the environment variable
         param value: value of the environment variable
         """
-        self.request_event.clear()
-        msg = MSG.SSHMsgChannelRequest(
-            recipient_channel=self.remote_id,
-            type="env",
-            want_reply=True,
-            name=name,
-            value=value,
-        )
-        await self.send_message(msg)
-        await self.request_event.wait()
-        if not self.request_success:
-            raise RuntimeError("Failed to set environment variable")
-        self.request_success = None
+        await self._send_request("env", name=name,value=value)
 
     async def setenv(self, env: dict):
         """
