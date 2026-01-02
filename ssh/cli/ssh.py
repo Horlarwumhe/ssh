@@ -132,8 +132,15 @@ async def cli_main(args):
             try:
                 await ssh.login(user, key=args.identity)
                 use_password = False
-            except Exception as e:
+            except AuthenticationError as e:
                 sys.stdout.write("login failed: %s\n" % e)
+        else:
+            # try "none"
+            try:
+                await ssh.login(user)
+                use_password = False
+            except AuthenticationError as e:
+                pass
         if use_password:
             for _ in range(3):
                 try:
