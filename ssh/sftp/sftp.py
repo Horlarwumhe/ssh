@@ -294,13 +294,15 @@ class SFTPFile:
         if not data:
             return
         self.buffer = io.BytesIO()
-        r = SSHFXPWRITE(id=rand_id(), handle=self.handle, offset=self.offset, data=data)
-        self.offset += len(data)
-        await self.sftp.send(r)
-        resp = await self.sftp.get_response(r.id)
-        if isinstance(resp, SSHFXPSTATUS):
-            if resp.error != SSH_FXF_STATUS.OK:
-                raise OSError("[error %s] %s" % (resp.error, resp.message),resp.error)
+        for i in range(0, len(data), self.buffer_size):
+            chunk = data[i : i + self.buffer_size]
+            r = SSHFXPWRITE(id=rand_id(), handle=self.handle, offset=self.offset, data=chunk)
+            await self.sftp.send(r)
+            resp = await self.sftp.get_response(r.id)
+            if isinstance(resp, SSHFXPSTATUS):
+                if resp.error != SSH_FXF_STATUS.OK:
+                    raise OSError("[error %s] %s" % (resp.error, resp.message), resp.error)
+            self.offset += len(chunk)
 
     async def flush(self) -> None:
         """
