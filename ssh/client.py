@@ -97,6 +97,8 @@ class SSHClient:
             SSHMsgUserauthFailure.opcode: self.handle_auth_response,
             SSHMsgUserauthSuccess.opcode: self.handle_auth_response,
             SSHMsgKexInit.opcode: self.handle_kex_init,
+            SSHMsgDebug.opcode: self.handle_debug_message,
+            SSHMsgDisconnect.opcode: self.handle_msg_disconnect,
         }
 
     async def connect(self, host: str, port: int) -> None:
@@ -571,6 +573,20 @@ class SSHClient:
         await self.start_kex(server_kex=msg)
         self.tasks.add(await curio.spawn(self.get_packets))
 
+
+    async def handle_debug_message(self, msg: SSHMsgDebug) -> None:
+        """
+        Handle debug message. This is called when the server sends DEBUG message.
+        """
+        if msg.display:
+            self.logger.debug(msg.message)
+
+    async def handle_msg_disconnect(self,msg: SSHMsgDisconnect) -> None:
+        """
+        Handle disconnect message. This is called when the server sends DISCONNECT message.
+        """
+        self.logger.error(f"Server disconnected: {msg.description}")
+        await self.close()
     async def __aenter__(self):
         return self
 
