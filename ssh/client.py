@@ -184,8 +184,7 @@ class SSHClient:
         if server_kex:
             # rekey
             self.rekey = True
-            self.server_kex_init = server_kex
-            resp = server_kex
+            self.server_kex_init = resp = server_kex
         else:
             packet = await self.sock.read_packet()
             resp = SSHMsgKexInit.parse(Buffer(packet.payload))
@@ -236,7 +235,7 @@ class SSHClient:
         # K || H || "A" || session_id)
         # https://datatracker.ietf.org/doc/html/rfc4253#section-7.2
         def compute_key(x, size):
-            key = hash_algo(K + H + x.encode() + self.session_id)[:size]
+            key = hash_algo(K + H + x.encode() + self.session_id)
             while len(key) < size:
                 key += hash_algo(K + H + key)
             assert len(key[:size]) == size, "key size != %s" % size
@@ -474,7 +473,6 @@ class SSHClient:
         tasks = self.tasks.copy()
         for task in tasks:
             await task.cancel()
-        for task in tasks:
             try:
                 await task.join()
             except Exception:
@@ -542,7 +540,6 @@ class SSHClient:
             else:
                 code = m.exit_status
             await channel.set_exit_event(code)
-            channel.set_exit_code(code)
 
     async def handle_channel_data(self, m: SSHMsgChannelData) -> None:
         chan_id = m.recipient_channel
