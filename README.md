@@ -40,11 +40,8 @@ async def main():
         print((await cmd.stdout()).decode())
         print(cmd.exit_code)
         cmd = await s.run_command("ls /proc")
-        while True:
-            d = await cmd.stdout()
-            if not d:
-                break
-            print(d.decode())
+        d = await cmd.stdout()
+        print(d.decode())
         print(cmd.exit_code)
         # read from stderr
         print((await cmd.stderr()).decode())
@@ -68,14 +65,6 @@ async def main():
         await s.login("username","password")
 ```
 
-##### stdout/stderr
-
-The `stdout` and `stderr` functions block until at least one byte of data is available or the process exits. Use `block=True` to wait until all data is read (process completion)."
-
-```py
-await cmd.stdout(block=True)
-# Waits until the process exits and returns all the data at once
-```
 ### Open port forward
 
 This is similar to 

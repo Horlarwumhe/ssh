@@ -96,7 +96,7 @@ async def copy_data(src, dest):
 
 async def recv_from_stdout(chan):
     while True:
-        data = await chan.stdout()
+        data = await chan.stdout(1024)
         if not data:
             await chan.close()
             break
@@ -105,7 +105,7 @@ async def recv_from_stdout(chan):
 
 async def recv_from_stderr(chan):
     while True:
-        data = await chan.stderr()
+        data = await chan.stderr(1024)
         if not data:
             await chan.close()
             break

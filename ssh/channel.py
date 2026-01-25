@@ -168,20 +168,26 @@ class Channel:
             if self.lock2.locked():
                 await self.lock2.release()
 
-    async def stderr(self, n=-1, block=False) -> bytes:
+    async def stderr(self, n: int = -1) -> bytes:
         """
         Read data from the stderr
+        parameters:
+           n: number of bytes to read, default is -1 which means read all untill EOF (channel closed)
+           returns: bytes of data read from stderr
         """
-        return await self._read_data(self.recv_stderr, n, block)
+        return await self._read_data(self.recv_stderr, n)
 
-    async def stdout(self, n=-1, block=False) -> bytes:
+    async def stdout(self, n: int = -1) -> bytes:
         """
         Read data from the stdout
+        parameters:
+           n: number of bytes to read, default is -1 which means read all untill EOF (channel closed)
+           returns: bytes of data read from stdout
         """
-        return await self._read_data(self.recv, n, block)
-    
-    async def _read_data(self,fn, n: int,block: bool) -> bytes:
-        if not block:
+        return await self._read_data(self.recv, n)
+        
+    async def _read_data(self,fn, n: int) -> bytes:
+        if n > 0:
             return await fn(n)
         data = b""
         n = -1  # n should be -1 to read all data
@@ -274,19 +280,20 @@ class Channel:
         """
         Run an interactive shell
         """
+        try:
+            import termios
+            import tty as libtty
+        except ImportError as e:
+            raise ImportError("interactive shell requires termios and tty module") from e
+    
         if not self.tty and tty:
             await self.request_tty()
         if not self.shell:
             await self.request_shell()
-        try:
-            import termios
-            import tty as libtty
-        except ImportError:
-            raise ImportError("interactive shell requires termios and tty module")
-        
+
         async def recv_from_stderr():
             while True:
-                data = await self.stderr()
+                data = await self.stderr(1024)
                 if not data:
                     await self.close()
                     break
@@ -321,9 +328,7 @@ class Channel:
                 stdin = curio.file.AsyncFile(sys.stdin)
                 while True:
                     d = await stdin.read(1)
-                    if not d:
-                        break
-                    if self.closed:
+                    if not d or self.closed:
                         break
                     await self.send(d.encode())
             except Exception as e:
