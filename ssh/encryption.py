@@ -124,4 +124,4 @@ class ChaCha20Poly1305(CipherBase):
 
     def generate_mac_key(self, seq_num: int) -> bytes:
         nonce = ZERO + int.to_bytes(seq_num, 8)
-        return self.do_encrypt(self.key2, nonce, b"\x00" * 32)[:32]
+        return self.do_encrypt(self.key2, nonce, b"\x00" * 32)
