@@ -23,7 +23,16 @@ class KexResult:
 log = logging.getLogger("ssh")
 
 class Kex:
-    pass
+
+    def verify_server_signature(self, key: bytes, sig: bytes, H: bytes) -> None:
+        server_key = self.client.available_server_host_key_algo[
+            self.client.server_host_key_algo
+        ].from_buffer(Buffer(key))
+        sig_buf = Buffer(sig)
+        hash_name = sig_buf.read_string()
+        raw = server_key.pub.public_bytes(encoding=serialization.Encoding.OpenSSH,format=serialization.PublicFormat.OpenSSH).decode()
+        log.info("Server host key: %s"%raw)
+        assert server_key.verify(sig_buf.read_binary(), H, hash_name), "Signature verification failed"
 
 class DHKex(Kex):
     name: str  # https://github.com/openssh/openssh-portable/blob/master/kex.h#L53-L67
@@ -78,15 +87,6 @@ class DHKex(Kex):
             )
         )
         return self.hash_algo(s)
-
-    def verify_server_signature(self, server_host_key: bytes, sig: bytes, H: bytes) -> None:
-        server_key = self.client.available_server_host_key_algo[
-            self.client.server_host_key_algo
-        ].from_buffer(Buffer(server_host_key))
-        
-        buf = Buffer(sig)
-        hash_name = buf.read_string()
-        assert server_key.verify(buf.read_binary(), H, hash_name), "Signature verification failed"
 
 
 class DHGroup1SHA1(DHKex):
@@ -182,13 +182,6 @@ class ECDH(Kex):
         )
         return self.hash_algo(payload)
 
-    def verify_server_signature(self, server_host_key: bytes, sig: bytes, H: bytes) -> None:
-        server_key = self.client.available_server_host_key_algo[
-            self.client.server_host_key_algo
-        ].from_buffer(Buffer(server_host_key))
-        sig_buf = Buffer(sig)
-        hash_name = sig_buf.read_string()
-        assert server_key.verify(sig_buf.read_binary(), H, hash_name), "Signature verification failed"
 
 class Curve25519(ECDH):
     name: str = "curve25519-sha256"
