@@ -1,17 +1,18 @@
 import logging
 import os
 from dataclasses import dataclass
+import typing
 
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.x25519 import (X25519PrivateKey,
                                                               X25519PublicKey)
-from cryptography.hazmat.primitives import serialization
 
 import ssh
 from ssh import message as msg
 from ssh.stream import Buffer
 
-from .hash import sha1, sha256, sha512, sha384
+from .hash import sha1, sha256, sha384, sha512
 
 
 @dataclass
@@ -39,7 +40,7 @@ class DHKex(Kex):
     key_size: int  # https://datatracker.ietf.org/doc/html/rfc3526#section-2
     P: int
     G: int
-    hash_algo: callable
+    hash_algo: typing.Callable
 
     def __init__(self, client: "ssh.client.SSHClient"):
         self.client = client
@@ -130,7 +131,7 @@ class DHGroup18SHA512(DHKex):
 class ECDH(Kex):
     name: str
     curve: ec.EllipticCurve
-    hash_algo: callable
+    hash_algo: typing.Callable
 
     def __init__(self, client: "ssh.client.SSHClient"):
         self.client = client
@@ -185,17 +186,17 @@ class ECDH(Kex):
 
 class Curve25519(ECDH):
     name: str = "curve25519-sha256"
-    hash_algo: callable = staticmethod(sha256)
+    hash_algo: typing.Callable = staticmethod(sha256)
 
     def generate_key_pair(self) -> tuple[X25519PrivateKey, X25519PublicKey]:
         pk = X25519PrivateKey.generate()
         pub = pk.public_key()
         return pk, pub.public_bytes_raw()
-    
+
     def compute_shared_secret(self, pk: X25519PrivateKey, server_pub_key: bytes) -> int:
         server_pub = X25519PublicKey.from_public_bytes(server_pub_key)
-        return int.from_bytes(pk.exchange(server_pub))
-    
+        return int.from_bytes(pk.exchange(server_pub),"big")
+
 class ECDHNISTP(ECDH):
     # ecdh-sha2-nistp*
     def generate_key_pair(self):
@@ -205,11 +206,11 @@ class ECDHNISTP(ECDH):
                         encoding=serialization.Encoding.X962,
                         format=serialization.PublicFormat.UncompressedPoint
                         )
-    
+
     def compute_shared_secret(self, pk: ec.EllipticCurvePrivateKey, server_pub_key: bytes) -> int:
         server_pub = ec.EllipticCurvePublicKey.from_encoded_point(self.curve, server_pub_key)
-        return int.from_bytes(pk.exchange(ec.ECDH(), server_pub))
-    
+        return int.from_bytes(pk.exchange(ec.ECDH(), server_pub),"big")
+
 class ECDHNISTP256(ECDHNISTP):
     name = "ecdh-sha2-nistp256"
     curve = ec.SECP256R1()

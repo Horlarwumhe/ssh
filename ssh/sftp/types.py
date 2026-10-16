@@ -116,7 +116,7 @@ class SSHFXPINIT:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.version)
         return b.getvalue()
 
@@ -151,7 +151,7 @@ class SSHFXPOPEN:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.filename)
         b.write_int(self.pflags)
@@ -167,7 +167,7 @@ class SSHFXPCLOSE:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_binary(self.handle)
         return b.getvalue()
@@ -183,7 +183,7 @@ class SSHFXPREAD:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_binary(self.handle)
         b.write_int64(self.offset)
@@ -201,7 +201,7 @@ class SSHFXPWRITE:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_binary(self.handle)
         b.write_int64(self.offset)
@@ -217,7 +217,7 @@ class SSHFXPFSTAT:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_binary(self.handle)
         return b.getvalue()
@@ -232,7 +232,7 @@ class SSHFXPSETSTAT:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.path)
         b.write_byte(bytes(self.attrs))
@@ -247,7 +247,7 @@ class SSHFXPOPENDIR:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.path)
         return b.getvalue()
@@ -261,7 +261,7 @@ class SSHFXPREADDIR:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_binary(self.handle)
         return b.getvalue()
@@ -275,7 +275,7 @@ class SSHFXPREMOVE:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.filename)
         return b.getvalue()
@@ -290,7 +290,7 @@ class SSHFXPMKDIR:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.path)
         b.write_byte(bytes(self.attrs))
@@ -305,7 +305,7 @@ class SSHFXPRMDIR:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.path)
         return b.getvalue()
@@ -319,7 +319,7 @@ class SSHFXPSTAT:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.path)
         return b.getvalue()
@@ -334,7 +334,7 @@ class SSHFXPRENAME:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.oldpath)
         b.write_string(self.newpath)
@@ -361,7 +361,7 @@ class SSHFXPSTATUS:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_int(self.error)
         b.write_string(self.message)
@@ -382,7 +382,7 @@ class SSHFXPHANDLE:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_string(self.handle)
         return b.getvalue()
@@ -401,7 +401,7 @@ class SSHFXPDATA:
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.code, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         b.write_int(self.id)
         b.write_binary(self.data)
         return b.getvalue()

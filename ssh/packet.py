@@ -6,6 +6,7 @@ import struct
 
 import curio
 from curio import socket
+
 try:
     from python_socks.async_.curio import Proxy
 except ImportError:
@@ -49,6 +50,7 @@ class Packet:
         block_size = max(block_size, cls.block_size)
         # etm mode, 4 bytes to make up for packet length which is not included in encrypted data
         # encrypted separately
+
         addlen = 4 if etm else 0
         padding_length = (addlen + block_size) - ((4 + 1 + len(payload)) % block_size)
         if padding_length < 4:
@@ -141,13 +143,13 @@ class Connection:
         addlen = 4 if self.server_enc.etm else 0
         if self.server_enc.etm:
             encrypted_size = await self.read(4)
-            size = int.from_bytes(self.server_enc.decrypt_size(encrypted_size, self.server_seq_no))
+            size = int.from_bytes(self.server_enc.decrypt_size(encrypted_size, self.server_seq_no),"big")
             data = await self.read(size)
             mac = await self.read(16)
             assert self.server_enc.verify(encrypted_size + data, mac, self.server_seq_no), "mac verification failed"
             data = io.BytesIO(decrypt(data, self.server_seq_no))
         else:
-            size = int.from_bytes(decrypt(await self.read(4)))
+            size = int.from_bytes(decrypt(await self.read(4)),"big")
             data = io.BytesIO(decrypt(await self.read(size)))
         padding_length = data.read(1)[0]
         payload = data.read(size - padding_length - 1)
@@ -191,7 +193,7 @@ class Connection:
             )
             logger.log(
                 logging.DEBUG,
-                f"[outgoing] {cmd=} {p.packet_length=} {len(data)=} {p.padding_length=}",
+                f"[outgoing] {cmd=} size={len(data)}",
             )
             mac = b""
             if self.encrypted:
@@ -199,7 +201,7 @@ class Connection:
                     data = self.client_enc.encrypt(data, self.seq_no)
                     mac = self.client_enc.digest(data, self.seq_no)
                 else:
-                    mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4) + data)
+                    mac = self.client_mac.digest(int.to_bytes(self.seq_no, 4,"big") + data)
                     data = self.client_enc.encrypt(data)
             await self.sock.sendall(data + mac)
             self.seq_no += 1 & 0xFFFFFFFF
