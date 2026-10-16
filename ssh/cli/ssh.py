@@ -194,6 +194,8 @@ async def cli_main(args):
             else:
                 sys.stdout.write("login failed:\n")
                 exit(1)
+        if args.local_forward:
+            task = await curio.spawn(setup_port_forward, args, ssh)
         if args.command or args.x:
             cmd = await ssh.run_command(args.command or args.x)
             t1 = await curio.spawn(recv_from_stdout, cmd)
@@ -203,11 +205,9 @@ async def cli_main(args):
             await t2.join()
             exit(code)
         task = None
-        if args.local_forward:
-            task = await curio.spawn(setup_port_forward, args, ssh)
         session = await ssh.open_session()
         # disable logging in shell
-        logging.disable(level=logging.INFO)
+        logging.disable(level=logging.CRITICAL)
         try:
             code = await session.run_interactive_shell(tty=not args.T)
         except Exception as e:
