@@ -186,7 +186,7 @@ class Channel:
            returns: bytes of data read from stdout
         """
         return await self._read_data(self.recv, n)
-        
+
     async def _read_data(self,fn, n: int) -> bytes:
         if n > 0:
             return await fn(n)
@@ -227,8 +227,7 @@ class Channel:
             self.recv_bytes += len(data)
             await self.ext_data_event.set()
         await self.check_window_size()
-        
-    
+
     async def check_window_size(self) -> None:
         """
         Adjust window size if necessary. This is mostly reached when using sftp/scp.
@@ -264,7 +263,17 @@ class Channel:
         await self.data_event.set()
         await self.ext_data_event.set()
 
+    async def send_eof(self):
+        """
+        send eof to the channel
+        """
+        msg = MSG.SSHMsgChannelEOF(recipient_channel=self.remote_id)
+        await self.client.send_message(msg)
+
     async def set_eof(self) -> None:
+        """
+        Set the eof flag.
+        """
         self.eof = True
         await self.data_event.set()
         await self.ext_data_event.set()
@@ -279,7 +288,7 @@ class Channel:
     @property
     def exit_code(self):
         return self.exit
-    async def set_request_response(self,value):
+    async def set_request_response(self, value: bool) -> None:
         self.request_success = value
         await self.request_event.set()
 
