@@ -10,10 +10,11 @@ from ssh import util
 
 from . import message as MSG
 
-
+logger = logging.getLogger("ssh")
 class Channel:
     ids_pool = iter(range(1, 2 << 31))
-    window_size = 2 << 31 - 1 # 2GB
+    max_buffer_size = 1024 * 1024 * 100  # 100MB
+    window_size = 2 << 31 - 1  # 2GB
 
     def __init__(self, client, chid=0, remote_id=0):
         self.channel_id = chid
@@ -229,10 +230,17 @@ class Channel:
         
     
     async def check_window_size(self) -> None:
+        """
+        Adjust window size if necessary. This is mostly reached when using sftp/scp.
+        """
         if self.recv_bytes >= self.window_size:
             # This size is mostly reached when using sftp/scp.
-            logging.info('window size(%s) reached, adjusting....'%self.window_size)
-            await self.client.send_message(MSG.SSHMsgWindowAdjust(recipient_channel=self.remote_id,size=self.window_size))
+            logger.info("window size(%s) reached, adjusting...." % self.window_size)
+            await self.client.send_message(
+                MSG.SSHMsgWindowAdjust(
+                    recipient_channel=self.remote_id, size=self.window_size
+                )
+            )
             self.recv_bytes = 0
 
     def has_data(self) -> bool:
@@ -285,7 +293,7 @@ class Channel:
             import tty as libtty
         except ImportError as e:
             raise ImportError("interactive shell requires termios and tty module") from e
-    
+
         if not self.tty and tty:
             await self.request_tty()
         if not self.shell:
@@ -298,7 +306,7 @@ class Channel:
                     await self.close()
                     break
                 sys.stderr.write(data.decode(errors="replace"))
-        
+
         async def recv_from_chan():
             try:
                 while True:

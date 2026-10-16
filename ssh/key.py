@@ -1,7 +1,7 @@
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey, Ed25519PublicKey)
 
@@ -11,8 +11,8 @@ from ssh.stream import Buffer
 class Key:
     @classmethod
     def from_file(cls, path, password=None) -> "Key":
-        data = open(path, "rb").read()  # file closed.
-        # shortcut
+        with open(path, "rb") as file:
+            data = file.read()
         if b"OPENSSH" in data:
             pk = serialization.load_ssh_private_key(data, password)
         else:

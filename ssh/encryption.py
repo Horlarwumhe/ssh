@@ -122,5 +122,5 @@ class ChaCha20Poly1305(CipherBase):
         return Poly1305.generate_tag(key, ciphertext)
 
     def generate_mac_key(self, seq_num: int) -> bytes:
-        nonce = ZERO + int.to_bytes(seq_num, 8)
+        nonce = ZERO + int.to_bytes(seq_num, 8,"big")
         return self.do_encrypt(self.key2, nonce, b"\x00" * 32)

@@ -26,10 +26,10 @@ class SSHMsgUserauthRequest(SSHMessage):
     opcode = 50
     username: str
     service_name: str
-    method_name: str  # "publickey" "password" "hostbased
+    method_name: str  # "publickey" "password" "hostbased" "none"
     flag: bool
     #   if method name is publickey
-    pub_key_algo: str = b""
+    pub_key_algo: str = ""
     pub_key: bytes = b""
     signatrue: bytes = b""  # if self.flag is true
     ########################
@@ -627,7 +627,7 @@ class SSHMsgChannelRequest(SSHMessage):
     # exit-signal
     signal_name: str = ""
     core_dump: bool = False
-    error: str = ''
+    error: str = ""
     lang: str = ""
 
     @classmethod
@@ -714,7 +714,7 @@ class SSHMsgChannelRequest(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_int(self.recipient_channel)
         buf.write_string(self.type)
         buf.write_bool(self.want_reply)
@@ -824,8 +824,7 @@ class SSHSignature:
         buf.write_binary(self.sig)
         return buf.getvalue()
 
-
-HANDLERS = {}
+HANDLERS: dict[int, SSHMessage] = {}
 
 
 for cls in locals().copy().values():
@@ -834,3 +833,10 @@ for cls in locals().copy().values():
             HANDLERS[cls.opcode] = cls
     except TypeError:
         pass
+
+
+class SSHMessageFactory:
+    @classmethod
+    def parse(cls, buf: Buffer):
+        opcode = buf.read_byte()
+        return HANDLERS[opcode].parse(buf)

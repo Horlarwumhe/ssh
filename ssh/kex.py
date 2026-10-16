@@ -23,6 +23,7 @@ class KexResult:
 
 log = logging.getLogger("ssh")
 
+
 class Kex:
 
     def verify_server_signature(self, key: bytes, sig: bytes, H: bytes) -> None:
@@ -34,6 +35,7 @@ class Kex:
         raw = server_key.pub.public_bytes(encoding=serialization.Encoding.OpenSSH,format=serialization.PublicFormat.OpenSSH).decode()
         log.info("Server host key: %s"%raw)
         assert server_key.verify(sig_buf.read_binary(), H, hash_name), "Signature verification failed"
+
 
 class DHKex(Kex):
     name: str  # https://github.com/openssh/openssh-portable/blob/master/kex.h#L53-L67
@@ -58,7 +60,7 @@ class DHKex(Kex):
 
     def generate_key_pair(self) -> tuple[int, int]:
         q = (self.P - 1) // 2
-        x = int.from_bytes(os.urandom(q.bit_length() // 8))
+        x = int.from_bytes(os.urandom(q.bit_length() // 8),"big")
         assert x < q, "error: x < (P-1)//2 %d > %d" % (x, q)
         e = pow(self.G, x, self.P)
         return x, e

@@ -84,7 +84,7 @@ class Connection:
     recv_size = 2048
     block_size = 8
 
-    def __init__(self,proxy=None) -> None:
+    def __init__(self,sock=None,proxy=None) -> None:
         self.sock = None
         self.buf = None
         self.seq_no = 0
@@ -123,8 +123,8 @@ class Connection:
         async with self.lock:
             if self.encrypted:
                 return await self.read_encrypted_packet()
-            size = int.from_bytes(await self.read(4))
-            padding_length = int.from_bytes(await self.read(1))
+            size = int.from_bytes(await self.read(4),"big")
+            padding_length = int.from_bytes(await self.read(1),"big")
             payload = await self.read(size - padding_length - 1)
             padding = await self.read(padding_length)
             assert (
@@ -133,7 +133,7 @@ class Connection:
             p = Packet(payload=payload)
             logger.log(
                 logging.DEBUG,
-                f"[incoming packet_length={size} opcode={code_to_desc(p.opcode)}]",
+                f"[incoming] size={size} opcode={code_to_desc(p.opcode)}]",
             )
             self.server_seq_no += 1 & 0xFFFFFFFF
         return p
@@ -174,7 +174,7 @@ class Connection:
             )
         logger.log(
             logging.DEBUG,
-            f"[incoming packet_length={size} opcode={code_to_desc(p.opcode)}]",
+            f"[incoming] size={size} opcode={code_to_desc(p.opcode)}]",
         )
         self.server_seq_no += 1 & 0xFFFFFFFF
         return p
