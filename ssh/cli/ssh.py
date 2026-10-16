@@ -13,12 +13,18 @@ from ssh.exc import AuthenticationError
 
 def main():
     parser = ArgumentParser(prog="pyssh")
+    if "-Q" in sys.argv:
+            parser.add_argument("-Q", help="Queries for the algorithms supported",
+                    choices=["kex", "cipher", "mac", "key", "help"])
+            args,_ = parser.parse_known_args()
+            show_algorithms(args.Q)
+            exit(0)
     parser.add_argument("host", help="host to connect to. format is user@host")
     parser.add_argument("-p", "--port", help="port to connect to", default=22, type=int)
     parser.add_argument(
         "-i", "--identity", help="private key to use for authentication"
     )
-    parser.add_argument("-v", "--verbose", help="verbose output", action="store_true")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="verbose output")
     parser.add_argument("-c", "--command", help="command to execute")
     parser.add_argument("-x", help="same as -c, for compatiblity with OpenSSH.")
     parser.add_argument(
@@ -26,8 +32,24 @@ def main():
         "--local-forward",
         help="local port forwarding. [local]:localport:dest:destport",
     )
-    parser.add_argument("-T",help= "disable pseudo-tty allocation", action="store_true")
+    parser.add_argument("-T", help="disable pseudo-tty allocation", action="store_true")
     parser.add_argument('--proxy',help="use socks5 proxy to connect. format is host:port")
+    parser.add_argument("--kex", help="preferred key exchange algorithm",choices=list(SSHClient.available_kex_algo.keys()),
+    )
+    parser.add_argument("--cipher",help="preferred encryption cipher algorithm",choices=list(SSHClient.available_encryption_algo.keys()),
+    )
+    parser.add_argument("--mac",help="preferred MAC algorithm",choices=list(SSHClient.available_mac_algo.keys()),
+    )
+    parser.add_argument("--hostkey",help="preferred server host key algorithm",choices=list(SSHClient.available_server_host_key_algo.keys()))
+    parser.add_argument(
+        "--algo",
+        action="append",
+        nargs=2,
+        metavar=("TYPE", "NAME"),
+        help="set preferred algorithm. TYPE is one of: kex, cipher, mac, hostkey. "
+             "Can be specified multiple times.",
+    )
+    parser.add_argument("-Q", help="Queries for the algorithms supported. Supported values: kex, cipher, mac, key, help", choices=["kex", "cipher", "mac", "key","help"])
     args = parser.parse_args()
     try:
         args.host.split("@")
@@ -120,12 +142,32 @@ def setup_socket(host, port):
     return sock
 
 
+def show_algorithms(algo_type):
+    s = SSHClient
+    text = ""
+    if algo_type == "cipher":
+        text = list(s.available_encryption_algo.keys())
+        text = map(lambda x: f"{x}(default)**" if x == s.preferred_encryption_algo else x, text)
+    if algo_type == "kex":
+        text = list(s.available_kex_algo.keys())
+        text = map(lambda x: f"{x}(default)**" if x == s.preferred_kex_algo else x, text)
+    if algo_type == "mac":
+        text = list(s.available_mac_algo.keys())
+        text = map(lambda x: f"{x}(default)**" if x == s.preferred_mac_algo else x, text)
+    if algo_type == "key":
+        text = list(s.available_server_host_key_algo.keys())
+        text = map(lambda x: f"{x} (default)**" if x == s.preferred_server_host_key_algo else x, text)
+    print("Supported %s:" % algo_type)
+    for algo in text:
+        print("  %s" % algo)
+    print("**default if supported by the server")
 async def cli_main(args):
     user, host = args.host.split("@")
     proxy = args.proxy
     async with SSHClient(proxy=proxy) as ssh:
         if args.verbose:
-            logging.basicConfig(level=logging.DEBUG)
+            level = {1: logging.INFO, 2: logging.DEBUG}.get(args.verbose, logging.DEBUG)
+            setup_logging(level)
         await ssh.connect(host, args.port)
         use_password = True
         if args.identity:
