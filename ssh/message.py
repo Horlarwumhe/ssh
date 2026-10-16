@@ -39,7 +39,7 @@ class SSHMsgUserauthRequest(SSHMessage):
 
     def __bytes__(self):
         r = Buffer()
-        r.write_byte(int.to_bytes(self.opcode, 1))
+        r.write_byte(int.to_bytes(self.opcode, 1,"big"))
         r.write_string(self.username)
         r.write_string(self.service_name)
         r.write_string(self.method_name)
@@ -173,7 +173,7 @@ class SSHMsgKexInit(SSHMessage):
 
     def __bytes__(self):
         m = Buffer()
-        m.write_byte(int.to_bytes(self.opcode, 1))
+        m.write_byte(int.to_bytes(self.opcode, 1,"big"))
         m.write_byte(self.cookie)
         m.write_list(self.kex_algo)
         m.write_list(self.server_host_key_algo)
@@ -240,7 +240,7 @@ class SSHMsgServiceRequest(SSHMessage):
 
     def __bytes__(self):
         w = Buffer()
-        w.write_byte(int.to_bytes(self.opcode, 1))
+        w.write_byte(int.to_bytes(self.opcode, 1,"big"))
         w.write_string(self.service_name)
         return w.getvalue()
 
@@ -260,7 +260,7 @@ class SSHMsgKexDHInit(SSHMessage):
 
     def __bytes__(self):
         m = Buffer()
-        m.write_byte(int.to_bytes(self.opcode))
+        m.write_byte(int.to_bytes(self.opcode, 1,"big"))
         m.write_mpint(self.e)
         return m.getvalue()
 
@@ -304,7 +304,7 @@ class SSHMsgKexECDHInit(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_binary(self.pub_key)
         return buf.getvalue()
 
@@ -326,7 +326,7 @@ class SSHMsgKexECDHReply(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_binary(self.host_key)
         buf.write_binary(self.pub_key)
         buf.write_binary(self.sig)
@@ -340,7 +340,7 @@ class SSHMsgNewKeys(SSHMessage):
 
     def __bytes__(self):
         b = Buffer()
-        b.write_byte(int.to_bytes(self.opcode, 1))
+        b.write_byte(int.to_bytes(self.opcode, 1,"big"))
         return b.getvalue()
 
     @classmethod
@@ -369,7 +369,7 @@ class SSHMsgChannelOpen(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_string(self.type)
         buf.write_int(self.sender_channel)
         buf.write_int(self.window_size)
@@ -447,7 +447,7 @@ class SSHMsgChannelOpenConfirmation(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_int(self.recipient_channel)
         buf.write_int(self.sender_channel)
         buf.write_int(self.window_size)
@@ -482,7 +482,7 @@ class SSHMsgChannelOpenFailure(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_int(self.recipient_channel)
         buf.write_int(self.reason_code)
         buf.write_string(self.description)
@@ -504,7 +504,7 @@ class SSHMsgChannelData(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_int(self.recipient_channel)
         buf.write_binary(self.data)
         return buf.getvalue()
@@ -529,7 +529,7 @@ class SSHMsgChannelExtendData(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_int(self.recipient_channel)
         buf.write_int(self.code)
         buf.write_binary(self.data)
@@ -550,7 +550,7 @@ class SSHMsgWindowAdjust(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_int(self.recipient_channel)
         buf.write_int(self.size)
         return buf.getvalue()
@@ -569,7 +569,7 @@ class SSHMsgChannelEOF(SSHMessage):
 
     def __bytes__(self):
         buf = Buffer()
-        buf.write_byte(int.to_bytes(self.opcode, 1))
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
         buf.write_int(self.recipient_channel)
         return buf.getvalue()
 

@@ -70,8 +70,8 @@ class AESCTR192(AES):
     mode = modes.CTR
 
 
-ONE = int.to_bytes(1, 8, "little")
-ZERO = int.to_bytes(0, 8, "little")
+ONE = int.to_bytes(1, 8,"little")
+ZERO = int.to_bytes(0, 8,"little")
 
 
 # https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.chacha20poly1305?annotate=HEAD
@@ -84,22 +84,21 @@ class ChaCha20Poly1305(CipherBase):
         # ignore iv for chacha20
         self.key1 = key[32:]  # size key
         self.key2 = key[:32]  # payload key
-        assert len(self.key1) == len(self.key2) == 32
 
     def decrypt(self, ciphertext: bytes, seq_num: int) -> bytes:
-        nonce = ONE + int.to_bytes(seq_num, 8)  # nonce for payload
+        nonce = ONE + int.to_bytes(seq_num, 8,"big")  # nonce for payload
         payload = self.do_decrypt(self.key2, nonce, ciphertext)
         return payload
 
     def encrypt(self, plaintext: bytes, seq_num: int) -> bytes:
-        nonce = ZERO + int.to_bytes(seq_num, 8)  # nonce for size
+        nonce = ZERO + int.to_bytes(seq_num, 8,"big")  # nonce for size
         size = self.do_encrypt(self.key1, nonce, plaintext[:4])
-        nonce = ONE + int.to_bytes(seq_num, 8)  # nonce for payload
+        nonce = ONE + int.to_bytes(seq_num, 8,"big")  # nonce for payload
         payload = self.do_encrypt(self.key2, nonce, plaintext[4:])
         return size + payload
 
     def decrypt_size(self, ciphertext: bytes, seq_num: int) -> bytes:
-        nonce = ZERO + int.to_bytes(seq_num, 8)  # nonce for size
+        nonce = ZERO + int.to_bytes(seq_num, 8,"big")  # nonce for size
         return self.do_decrypt(self.key1, nonce, ciphertext)
 
     def do_encrypt(self, key: bytes, nonce: bytes, plaintext: bytes) -> bytes:

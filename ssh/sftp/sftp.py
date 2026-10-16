@@ -212,7 +212,7 @@ class SFTP:
         await self.channel.send(data)
 
     async def read_response(self) -> SFTPMessage:
-        size = int.from_bytes(await self.channel.recv(4))
+        size = int.from_bytes(await self.channel.recv(4),"big")
         data = b""
         while len(data) < size:
             data += await self.channel.recv(size - len(data))
