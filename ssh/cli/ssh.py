@@ -50,6 +50,11 @@ def main():
              "Can be specified multiple times.",
     )
     parser.add_argument("-Q", help="Queries for the algorithms supported. Supported values: kex, cipher, mac, key, help", choices=["kex", "cipher", "mac", "key","help"])
+    if "GIT_SSH_COMMAND" in os.environ:
+        # host cmd
+        host,cmd = sys.argv[-2],sys.argv[-1]
+        sys.argv[-2] = cmd
+        sys.argv[-1] = host
     args = parser.parse_args()
     try:
         args.host.split("@")
@@ -120,19 +125,26 @@ async def recv_from_stdout(chan):
     while True:
         data = await chan.stdout(1024)
         if not data:
-            await chan.close()
             break
-        sys.stdout.write(data.decode(errors="replace"))
 
+        sys.stdout.buffer.write(data)
+        sys.stdout.buffer.flush()
 
 async def recv_from_stderr(chan):
     while True:
         data = await chan.stderr(1024)
         if not data:
-            await chan.close()
             break
-        sys.stderr.write(data.decode(errors="replace"))
+        sys.stderr.buffer.write(data)
+        sys.stderr.buffer.flush()
 
+async def recv_from_stdin(chan):
+    stdin = curio.file.AsyncFile(sys.stdin.buffer.raw)
+    while True:
+        data = await stdin.read(1024)
+        if not data:
+            break
+        await chan.send(data)
 
 def setup_socket(host, port):
     sock = socket.socket()
@@ -200,9 +212,16 @@ async def cli_main(args):
             cmd = await ssh.run_command(args.command or args.x)
             t1 = await curio.spawn(recv_from_stdout, cmd)
             t2 = await curio.spawn(recv_from_stderr, cmd)
+            t3 = await curio.spawn(recv_from_stdin,cmd)
             code = await cmd.wait()
             await t1.join()
             await t2.join()
+            await t3.cancel()
+            try:
+                await t3.join()
+            except curio.errors.TaskError:
+                pass
+            await cmd.close()
             exit(code)
         task = None
         session = await ssh.open_session()
