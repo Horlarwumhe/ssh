@@ -118,3 +118,50 @@ class Ed25519Key(Key):
     @property
     def algo_name(self) -> str:
         return "ssh-ed25519"
+
+
+class NISTPKeys(Key):
+
+    # ecdsa-sha2-nistp*
+    _types = {
+        "nistp256": ec.SECP256R1(),
+        "nistp384": ec.SECP384R1(),
+        "nistp521": ec.SECP521R1(),
+    }
+    hash_cls = {
+            "ecdsa-sha2-nistp256": hashes.SHA256,
+            "ecdsa-sha2-nistp384": hashes.SHA384,
+            "ecdsa-sha2-nistp512": hashes.SHA512,
+    }
+    def __init__(self,pk,pub):
+        self.pk = pk
+        self.pub = pub
+
+
+    @classmethod
+    def from_buffer(cls, b: Buffer):
+        name = b.read_string()
+        assert name.startswith("ecdsa-sha2-"), "Not an NISTP key"
+        curve_name = b.read_string()
+        point = b.read_binary()
+        pub = ec.EllipticCurvePublicKey.from_encoded_point(
+            cls._types[curve_name], point
+        )
+        return cls(pk=None, pub=pub)
+
+    def verify(self, signature, message,algo=None):
+        # assert algo in self._types, "%s not supported"%algo
+        # signature = mpint(r) || mpint(s)
+        from cryptography.hazmat.primitives.asymmetric import utils
+
+        sig = io.BytesIO(signature)
+        r = int.from_bytes(sig.read(int.from_bytes(sig.read(4),"big")),"big",signed=True)
+        s = int.from_bytes(sig.read(int.from_bytes(sig.read(4),"big")),"big",signed=True)
+        sign = utils.encode_dss_signature(r,s)
+        hash = self.hash_cls[algo]()
+        try:
+            self.pub.verify(sign,message,ec.ECDSA(hash))
+        except InvalidSignature:
+            return False
+        return True
+        

@@ -54,6 +54,9 @@ class SSHClient:
         "rsa-sha2-512": key.RSAKey,
         "rsa-sha2-256": key.RSAKey,
         "ssh-ed25519": key.Ed25519Key,
+        "ecdsa-sha2-nistp256":key.NISTPKeys,
+        "ecdsa-sha2-nistp384":key.NISTPKeys,
+        "ecdsa-sha2-nistp521":key.NISTPKeys,
     }
 
     def __init__(self,proxy=None) -> None:

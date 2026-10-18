@@ -31,10 +31,11 @@ class Kex:
             self.client.server_host_key_algo
         ].from_buffer(Buffer(key))
         sig_buf = Buffer(sig)
-        hash_name = sig_buf.read_string()
+        sig_name = sig_buf.read_string()
         raw = server_key.pub.public_bytes(encoding=serialization.Encoding.OpenSSH,format=serialization.PublicFormat.OpenSSH).decode()
         log.info("Server host key: %s"%raw)
-        assert server_key.verify(sig_buf.read_binary(), H, hash_name), "Signature verification failed"
+        log.info("Signature identifier: %s ",sig_name)
+        assert server_key.verify(sig_buf.read_binary(), H, sig_name), "Signature verification failed"
 
 
 class DHKex(Kex):
