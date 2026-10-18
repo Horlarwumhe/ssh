@@ -7,10 +7,14 @@ requires-python = ">=3.7"
 dependencies = [
     "cryptography>=44.0.0",
     "curio @ git+https://github.com/dabeaz/curio.git",
-    "tqdm"
+    "tqdm",
+    "python-socks"
 ]
 [project.scripts]
 pyssh = "ssh.cli.ssh:main"
 pyscp = "ssh.cli.scp:main"
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
 
 
