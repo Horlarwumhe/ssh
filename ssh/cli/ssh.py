@@ -34,13 +34,13 @@ def main():
     )
     parser.add_argument("-T", help="disable pseudo-tty allocation", action="store_true")
     parser.add_argument('--proxy',help="use socks5 proxy to connect. format is host:port")
-    parser.add_argument("--kex", help="preferred key exchange algorithm",choices=list(SSHClient.available_kex_algo.keys()),
+    parser.add_argument("--kex", help="preferred key exchange algorithm",choices=list(SSHClient.KEX_ALGOS.keys()),
     )
-    parser.add_argument("--cipher",help="preferred encryption cipher algorithm",choices=list(SSHClient.available_encryption_algo.keys()),
+    parser.add_argument("--cipher",help="preferred encryption cipher algorithm",choices=list(SSHClient.ENCRYPTION_ALGOS.keys()),
     )
-    parser.add_argument("--mac",help="preferred MAC algorithm",choices=list(SSHClient.available_mac_algo.keys()),
+    parser.add_argument("--mac",help="preferred MAC algorithm",choices=list(SSHClient.MAC_ALGOS.keys()),
     )
-    parser.add_argument("--hostkey",help="preferred server host key algorithm",choices=list(SSHClient.available_server_host_key_algo.keys()))
+    parser.add_argument("--hostkey",help="preferred server host key algorithm",choices=list(SSHClient.HOST_KEY_ALGOS.keys()))
     parser.add_argument(
         "--algo",
         action="append",
@@ -158,16 +158,16 @@ def show_algorithms(algo_type):
     s = SSHClient
     text = ""
     if algo_type == "cipher":
-        text = list(s.available_encryption_algo.keys())
+        text = list(s.ENCRYPTION_ALGOS.keys())
         text = map(lambda x: f"{x}(default)**" if x == s.preferred_encryption_algo else x, text)
     if algo_type == "kex":
-        text = list(s.available_kex_algo.keys())
+        text = list(s.KEX_ALGOS.keys())
         text = map(lambda x: f"{x}(default)**" if x == s.preferred_kex_algo else x, text)
     if algo_type == "mac":
-        text = list(s.available_mac_algo.keys())
+        text = list(s.MAC_ALGOS.keys())
         text = map(lambda x: f"{x}(default)**" if x == s.preferred_mac_algo else x, text)
     if algo_type == "key":
-        text = list(s.available_server_host_key_algo.keys())
+        text = list(s.HOST_KEY_ALGOS.keys())
         text = map(lambda x: f"{x} (default)**" if x == s.preferred_server_host_key_algo else x, text)
     print("Supported %s:" % algo_type)
     for algo in text:

@@ -27,7 +27,7 @@ log = logging.getLogger("ssh")
 class Kex:
 
     def verify_server_signature(self, key: bytes, sig: bytes, H: bytes) -> None:
-        server_key = self.client.available_server_host_key_algo[
+        server_key = self.client.HOST_KEY_ALGOS[
             self.client.server_host_key_algo
         ].from_buffer(Buffer(key))
         sig_buf = Buffer(sig)

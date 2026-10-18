@@ -23,7 +23,7 @@ INFO = logging.INFO
 class SSHClient:
     version = "SSH-2.0-to_be_determined"
     preferred_kex_algo = "curve25519-sha256"
-    available_kex_algo: dict[str, kex.DHKex] = {
+    KEX_ALGOS: dict[str, kex.Kex] = {
         "diffie-hellman-group14-sha256": kex.DHGroup14SHA256,
         "diffie-hellman-group16-sha512": kex.DHGroup16SHA512,
         "curve25519-sha256": kex.Curve25519,
@@ -37,20 +37,20 @@ class SSHClient:
         
     }
     preferred_encryption_algo = "chacha20-poly1305@openssh.com"
-    available_encryption_algo: dict[str, enc.AES] = {
+    ENCRYPTION_ALGOS: dict[str, enc.AES] = {
         "aes256-ctr": enc.AESCTR256,
         "aes128-ctr": enc.AESCTR128,
         "aes192-ctr": enc.AESCTR192,
         "chacha20-poly1305@openssh.com": enc.ChaCha20Poly1305,
     }
     preferred_mac_algo = ""
-    available_mac_algo: dict[str, mac.HMAC] = {
+    MAC_ALGOS: dict[str, mac.HMAC] = {
         "hmac-sha2-256": mac.HMACSHA256,
         "hmac-sha2-512": mac.HMACSHA512,
         "hmac-sha1": mac.HMACSHA1,
     }
     preferred_server_host_key_algo = "ssh-ed25519"
-    available_server_host_key_algo: dict[str, key.Key] = {
+    HOST_KEY_ALGOS: dict[str, key.Key] = {
         "rsa-sha2-512": key.RSAKey,
         "rsa-sha2-256": key.RSAKey,
         "ssh-ed25519": key.Ed25519Key,
@@ -156,16 +156,16 @@ class SSHClient:
 
         req = SSHMsgKexInit(
             cookie=os.urandom(16),
-            kex_algo=list(self.available_kex_algo.keys()),
-            server_host_key_algo=list(self.available_server_host_key_algo),
+            kex_algo=list(self.KEX_ALGOS.keys()),
+            server_host_key_algo=list(self.HOST_KEY_ALGOS),
             encryption_algo_client_to_server=list(
-                self.available_encryption_algo.keys()
+                self.ENCRYPTION_ALGOS.keys()
             ),
             encryption_algo_server_to_client=list(
-                self.available_encryption_algo.keys()
+                self.ENCRYPTION_ALGOS.keys()
             ),
-            mac_algo_client_to_server=list(self.available_mac_algo.keys()),
-            mac_algo_server_to_client=list(self.available_mac_algo.keys()),
+            mac_algo_client_to_server=list(self.MAC_ALGOS.keys()),
+            mac_algo_server_to_client=list(self.MAC_ALGOS.keys()),
             compression_algo_client_to_server=list(("none",)),
             compression_algo_server_to_client=list(("none",)),
             languages_client_to_server=list(),
@@ -196,7 +196,7 @@ class SSHClient:
             self.server_kex_init = resp
         self.kex_init = req
         self.set_algos(resp)
-        kex_result = await self.available_kex_algo[self.kex_algo](self).start()
+        kex_result = await self.KEX_ALGOS[self.kex_algo](self).start()
         if not self.session_id:
             self.session_id = kex_result.H
         await self.end_kex_init()
@@ -210,21 +210,21 @@ class SSHClient:
             ]
 
         self.kex_algo = select_algo(
-            server_kex.kex_algo, self.available_kex_algo, self.preferred_kex_algo
+            server_kex.kex_algo, self.KEX_ALGOS, self.preferred_kex_algo
         )
         self.server_host_key_algo = select_algo(
             server_kex.server_host_key_algo,
-            self.available_server_host_key_algo,
+            self.HOST_KEY_ALGOS,
             self.preferred_server_host_key_algo,
         )
         self.encryption_algo = select_algo(
             server_kex.encryption_algo_client_to_server,
-            self.available_encryption_algo,
+            self.ENCRYPTION_ALGOS,
             self.preferred_encryption_algo,
         )
         self.mac_algo = select_algo(
             server_kex.mac_algo_client_to_server,
-            self.available_mac_algo,
+            self.MAC_ALGOS,
             self.preferred_mac_algo,
         )
         self.compression_algo = "none"  # TODO
@@ -247,10 +247,10 @@ class SSHClient:
             return key[:size]
 
         K = util.to_mpint(K)
-        hash_algo = self.available_kex_algo[self.kex_algo].hash_algo
-        encryptor = self.available_encryption_algo[self.encryption_algo]
+        hash_algo = self.KEX_ALGOS[self.kex_algo].hash_algo
+        encryptor = self.ENCRYPTION_ALGOS[self.encryption_algo]
         key_size, iv_size = encryptor.key_size, encryptor.block_size
-        mac_algo = self.available_mac_algo[self.mac_algo]
+        mac_algo = self.MAC_ALGOS[self.mac_algo]
         mac_size = mac_algo.size
         client_to_server_iv = compute_key("A", iv_size)
         server_to_client_iv = compute_key("B", iv_size)
