@@ -4,10 +4,11 @@ import os
 import socket as pysock
 import sys
 from argparse import ArgumentParser
-
 import curio
 from curio import socket
+import random
 
+from ssh import algo
 from ssh import SSHClient
 from ssh.exc import AuthenticationError
 
@@ -34,13 +35,10 @@ def main():
     )
     parser.add_argument("-T", help="disable pseudo-tty allocation", action="store_true")
     parser.add_argument('--proxy',help="use socks5 proxy to connect. format is host:port")
-    parser.add_argument("--kex", help="preferred key exchange algorithm",choices=list(SSHClient.KEX_ALGOS.keys()),
-    )
-    parser.add_argument("--cipher",help="preferred encryption cipher algorithm",choices=list(SSHClient.ENCRYPTION_ALGOS.keys()),
-    )
-    parser.add_argument("--mac",help="preferred MAC algorithm",choices=list(SSHClient.MAC_ALGOS.keys()),
-    )
-    parser.add_argument("--hostkey",help="preferred server host key algorithm",choices=list(SSHClient.HOST_KEY_ALGOS.keys()))
+    parser.add_argument("--kex", help="preferred key exchange algorithm",choices=list(SSHClient.KEX_ALGOS.keys())+["random"]),
+    parser.add_argument("--cipher",help="preferred encryption cipher algorithm",choices=list(SSHClient.ENCRYPTION_ALGOS.keys())+["random"]),
+    parser.add_argument("--mac",help="preferred MAC algorithm",choices=list(SSHClient.MAC_ALGOS.keys())+["random"]),
+    parser.add_argument("--hostkey",help="preferred server host key algorithm",choices=list(SSHClient.HOST_KEY_ALGOS.keys())+["random"])
     parser.add_argument(
         "--algo",
         action="append",
@@ -49,7 +47,7 @@ def main():
         help="set preferred algorithm. TYPE is one of: kex, cipher, mac, hostkey. "
              "Can be specified multiple times.",
     )
-    parser.add_argument("-Q", help="Queries for the algorithms supported. Supported values: kex, cipher, mac, key, help", choices=["kex", "cipher", "mac", "key","help"])
+    parser.add_argument("-Q", help="Queries for the algorithms supported. Supported values: kex, cipher, mac, key, all, help", choices=["kex", "cipher", "mac", "key", "all", "help"])
     if "GIT_SSH_COMMAND" in os.environ:
         # host cmd
         host,cmd = sys.argv[-2],sys.argv[-1]
@@ -173,9 +171,28 @@ def show_algorithms(algo_type):
     for algo in text:
         print("  %s" % algo)
     print("**default if supported by the server")
+
+
+def set_preferred_algos(args):
+    def resolve(value, algos):
+        if value == "random":
+            return random.choice(list(algos.keys()))
+        return value
+
+    if args.hostkey:
+        SSHClient.preferred_server_host_key_algo = resolve(args.hostkey, algo.HOST_KEY_ALGOS)
+    if args.kex:
+        SSHClient.preferred_kex_algo = resolve(args.kex, algo.KEX_ALGOS)
+    if args.cipher:
+        SSHClient.preferred_encryption_algo = resolve(args.cipher, algo.ENCRYPTION_ALGOS)
+    if args.mac:
+        SSHClient.preferred_mac_algo = resolve(args.mac, algo.MAC_ALGOS)
+
 async def cli_main(args):
     user, host = args.host.split("@")
     proxy = args.proxy
+    set_preferred_algos(args)
+    
     async with SSHClient(proxy=proxy) as ssh:
         if args.verbose:
             level = {1: logging.INFO, 2: logging.DEBUG}.get(args.verbose, logging.DEBUG)
