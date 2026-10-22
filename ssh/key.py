@@ -131,7 +131,7 @@ class NISTPKeys(Key):
     hash_cls = {
             "ecdsa-sha2-nistp256": hashes.SHA256(),
             "ecdsa-sha2-nistp384": hashes.SHA384(),
-            "ecdsa-sha2-nistp512": hashes.SHA512(),
+            "ecdsa-sha2-nistp521": hashes.SHA512(),
     }
     def __init__(self,pk,pub):
         self.pk = pk
