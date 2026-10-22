@@ -81,13 +81,17 @@ class SSHMsgUserauthSuccess(SSHMessage):
         return cls()
 
 
+@dataclass
 class SSHMsgUserauthBanner(SSHMessage):
     # SSH_MSG_USERAUTH_BANNER
     opcode = 53
+    message: str
+    lang: str
 
     @classmethod
-    def _parse(cls, data):
-        return cls()
+    def parse(cls, m: Buffer):
+        cls.validate(m)
+        return cls(message=m.read_string(), lang=m.read_string())
 
 
 class SSHMsgUserauthPkOk(SSHMessage):
@@ -280,6 +284,7 @@ class SSHMessageKexDHReply(SSHMessage):
 
     def __bytes__(self):
         m = Buffer()
+        m.write_byte(int.to_bytes(self.opcode, 1,"big"))
         m.write_binary(self.host_key)
         m.write_mpint(self.f)
         m.write_binary(self.sig)
@@ -605,7 +610,7 @@ class SSHMsgChannelRequest(SSHMessage):
     heigth_char: int = 0
     width_pixel: int = 0
     heigth_pixel: int = 0
-    mode: str = ""
+    mode: bytes = b""
     #### X-11 request https://datatracker.ietf.org/doc/html/rfc4254#section-6.4
     single_conn: bool = True
     auth_protocoal: str = ""
@@ -646,7 +651,7 @@ class SSHMsgChannelRequest(SSHMessage):
                 heigth_char=buf.read_int(),
                 width_pixel=buf.read_int(),
                 heigth_pixel=buf.read_int(),
-                mode=buf.read_string(),
+                mode=buf.read_binary(),
             )
         elif type_ == "x11-req":
             return cls(
@@ -725,7 +730,7 @@ class SSHMsgChannelRequest(SSHMessage):
             buf.write_int(self.heigth_char)
             buf.write_int(self.width_pixel)
             buf.write_int(self.heigth_pixel)
-            buf.write_string(self.mode)
+            buf.write_binary(self.mode)
         elif self.type == "x11-req":
             buf.write_bool(self.single_conn)
             buf.write_string(self.auth_protocoal)

@@ -75,7 +75,7 @@ class SSHClient:
             SSHMsgUserauthSuccess.opcode: self.handle_auth_response,
             SSHMsgKexInit.opcode: self.handle_kex_init,
             SSHMsgDebug.opcode: self.handle_debug_message,
-            SSHMsgDisconnect.opcode: self.handle_msg_disconnect,
+            # SSHMsgDisconnect.opcode: self.handle_msg_disconnect,
         }
 
     async def connect(self, host: str, port: int) -> None:
