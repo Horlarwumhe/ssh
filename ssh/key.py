@@ -129,9 +129,9 @@ class NISTPKeys(Key):
         "nistp521": ec.SECP521R1(),
     }
     hash_cls = {
-            "ecdsa-sha2-nistp256": hashes.SHA256,
-            "ecdsa-sha2-nistp384": hashes.SHA384,
-            "ecdsa-sha2-nistp512": hashes.SHA512,
+            "ecdsa-sha2-nistp256": hashes.SHA256(),
+            "ecdsa-sha2-nistp384": hashes.SHA384(),
+            "ecdsa-sha2-nistp512": hashes.SHA512(),
     }
     def __init__(self,pk,pub):
         self.pk = pk
@@ -158,7 +158,7 @@ class NISTPKeys(Key):
         r = int.from_bytes(sig.read(int.from_bytes(sig.read(4),"big")),"big",signed=True)
         s = int.from_bytes(sig.read(int.from_bytes(sig.read(4),"big")),"big",signed=True)
         sign = utils.encode_dss_signature(r,s)
-        hash = self.hash_cls[algo]()
+        hash = self.hash_cls[algo]
         try:
             self.pub.verify(sign,message,ec.ECDSA(hash))
         except InvalidSignature:
