@@ -335,7 +335,6 @@ class Channel:
             finally:
                 await self.close()
 
-        # Adapted from https://github.com/paramiko/paramiko/blob/master/demos/interactive.py
         if tty:
             oldtty = termios.tcgetattr(sys.stdin)
             try:
