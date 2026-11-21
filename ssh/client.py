@@ -108,6 +108,7 @@ class SSHClient:
             if msg.opcode in self.events:
                 self.logger.debug("Found message in events %s", msg)
                 ev = self.events.pop(msg.opcode)
+                self.wait_messages[msg.opcode] = msg
                 await ev.set()
             fn = self.message_handlers.get(msg.opcode)
             if fn:
@@ -430,19 +431,27 @@ class SSHClient:
     def _log(self, level, message):
         self.logger.log(level, message)
 
-    async def wait_for_message(self, msg: SSHMessage, timeout: int =120, silent: bool=False) -> bool:
+    async def wait_for_message(self, msg, timeout=120, silent=False):
+        classes = msg if isinstance(msg, (tuple, list)) else (msg,)
+        opcodes = tuple(c.opcode for c in classes)
+
         ev = curio.Event()
-        self.events[msg.opcode] = ev
-        self.logger.info("Waiting for message %s", msg)
+        for op in opcodes:
+            self.events[op] = ev
+        self.logger.info("Waiting for message(s) %s", [c.__name__ for c in classes])
         try:
             async with curio.timeout_after(timeout):
                 await ev.wait()
         except curio.TaskTimeout:
-            self.logger.info("Task timeout after %s" % timeout)
+            self.logger.info("Task timeout after %s", timeout)
+            for op in opcodes:
+                self.events.pop(op, None)
             if silent:
                 return False
             raise
-        return True
+        for op in opcodes:
+            if op in self.wait_messages:
+                return self.wait_messages.pop(op)
 
     async def open_session(self) -> Channel:
         """
