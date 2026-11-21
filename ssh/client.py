@@ -317,6 +317,66 @@ class SSHClient:
         await self.send_message(auth)
         await self.do_auth()
 
+    async def auth_keyboard_interactive(self, username: str, handler=None) -> None:
+        """
+        Authenticate using keyboard-interactive method.
+
+        :param username: username
+        :param handler: async callable(prompts: list[tuple[str, bool]]) -> list[str]
+        """
+        if handler is None:
+            raise ValueError("handler callback is required")
+
+        svc = SSHMsgServiceRequest(service_name="ssh-userauth")
+        await self.send_message(svc)
+        if not await self.wait_for_message(SSHMsgServiceAccept, timeout, silent=True):
+            raise TimeoutError("service request timeout")
+
+        await self.send_message(SSHMsgUserauthRequest(
+            username=username,
+            service_name="ssh-connection",
+            method_name="keyboard-interactive",
+            flag=False,
+            submethods=[],
+        ))
+        info_req_seen = False
+        while True:
+            msg = await self.wait_for_message(
+                (SSHMsgUserauthInfoRequest,
+                 SSHMsgUserauthSuccess,
+                 SSHMsgUserauthFailure,
+                 SSHMsgUserauthBanner),
+                timeout,
+                silent=True,
+            )
+            if msg is None:
+                raise TimeoutError("timeout during keyboard-interactive auth")
+
+            if isinstance(msg, SSHMsgUserauthBanner):
+                continue
+
+            if isinstance(msg, SSHMsgUserauthSuccess):
+                return
+
+            if isinstance(msg, SSHMsgUserauthFailure):
+                if not info_req_seen:
+                    raise exc.AuthError("keyboard-interactive auth failed",auth_methods=msg.methods)
+                raise exc.AuthenticationError("keyboard-interactive auth failed",auth_methods=msg.methods)
+            
+            if isinstance(msg, SSHMsgUserauthInfoRequest):
+                info_req_seen = True
+                msg: SSHMsgUserauthInfoRequest
+                resp = await handler(msg.prompts)
+                if len(resp) != msg.num_prompts:
+                    raise ValueError(
+                        f"handler returned {len(resp)} responses, "
+                        f"server expects {msg.num_prompts}"
+                    )
+                await self.send_message(SSHMsgUserauthInfoResponse(
+                    num_responses=msg.num_prompts,
+                    responses=resp))
+
+    
     async def login(
         self, username: str, password: Optional[str] = None, key: Optional[str] = None
     ) -> None:

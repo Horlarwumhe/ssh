@@ -188,41 +188,73 @@ def set_preferred_algos(args):
     if args.mac:
         SSHClient.preferred_mac_algo = resolve(args.mac, algo.MAC_ALGOS)
 
+
 async def cli_main(args):
-    user, host = args.host.split("@")
+    user, _ , host = args.host.rpartition("@")
     proxy = args.proxy
     set_preferred_algos(args)
+    async def keyborad_interactive_handler(prompts: list[str]):
+        resp = []
+        for prompt in prompts:
+            s = input(prompt[0])
+            resp.append(s)
+        return resp
     
     async with SSHClient(proxy=proxy) as ssh:
         if args.verbose:
             level = {1: logging.INFO, 2: logging.DEBUG}.get(args.verbose, logging.DEBUG)
             setup_logging(level)
         await ssh.connect(host, args.port)
-        use_password = True
+        auth_success = False
+        auth_error = None
+
+        # try pubkey if given
         if args.identity:
             try:
                 await ssh.login(user, key=args.identity)
-                use_password = False
+                auth_success = True
             except AuthenticationError as e:
-                sys.stdout.write("login failed: %s\n" % e)
-        else:
-            # try "none"
+                auth_error = e
+                sys.stderr.write("login failed: %s\n" % e)
+            except Exception as e:
+                sys.stderr.write("login failed: %s\n" % e)
+            
+        # try "none"
+        if not auth_success:
             try:
                 await ssh.login(user)
-                use_password = False
+                auth_success = True
             except AuthenticationError as e:
-                pass
-        if use_password:
+                auth_error = e
+
+        # try keyboard-interactive if supported
+        if not auth_success and "keyboard-interactive" in auth_error.auth_methods:
+             for _ in range(3):
+                 try:
+                     await ssh.auth_keyboard_interactive(user,keyborad_interactive_handler)
+                     auth_success = True
+                     break
+                 except AuthenticationError:
+                     sys.stderr.write("Login failed\n")
+                 except AuthError:
+                     break
+                     # don't retry here.
+        # password           
+        if not auth_success and "password" in auth_error.auth_methods:
             for _ in range(3):
                 try:
                     passwd = getpass.getpass("password for %s@%s: " % (user, host))
                     await ssh.login(user, password=passwd)
+                    auth_success = True
                     break
                 except AuthenticationError as e:
-                    sys.stdout.write("login failed: %s\n" % e)
-            else:
-                sys.stdout.write("login failed:\n")
-                exit(1)
+                    sys.stderr.write("login failed: %s\n" % e)
+                except Exception as e:
+                    sys.stderr.write("login failed: %s\n" % e)
+                    exit(1)
+    
+        if not auth_success:
+            exit(1)
         if args.local_forward:
             task = await curio.spawn(setup_port_forward, args, ssh)
         if args.command or args.x:

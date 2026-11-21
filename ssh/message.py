@@ -35,7 +35,55 @@ class SSHMsgUserauthRequest(SSHMessage):
     ########################
 
     ##### password method_name
-    password: bytes = b""
+    password: str = ""
+
+    ## keyboard-interactive
+    lang: str = ""
+    submethods: tuple[str, ...] = ()
+
+    @classmethod
+    def parse(cls, buf: Buffer):
+        cls.validate(buf)
+        username = buf.read_string()
+        service_name = buf.read_string()
+        method_name = buf.read_string()
+        if method_name == "password":
+            return cls(
+                username=username,
+                service_name=service_name,
+                method_name=method_name,
+                flag=buf.read_bool(),
+                password=buf.read_string(),
+            )
+        if method_name == "publickey":
+            flag = buf.read_bool()
+            pub_key_algo = buf.read_string()
+            pub_key = buf.read_binary()
+            signature = buf.read_binary() if flag else b""
+            return cls(
+                username=username,
+                service_name=service_name,
+                method_name=method_name,
+                flag=flag,
+                pub_key_algo=pub_key_algo,
+                pub_key=pub_key,
+                signatrue=signature,
+            )
+        if method_name == "keyboard-interactive":
+            submethods = buf.read_list()
+            return cls(
+                username=username,
+                service_name=service_name,
+                method_name=method_name,
+                flag=False,
+                submethods=submethods,
+            )
+        return cls(
+            username=username,
+            service_name=service_name,
+            method_name=method_name,
+            flag=False,
+        )
 
     def __bytes__(self):
         r = Buffer()
@@ -52,6 +100,9 @@ class SSHMsgUserauthRequest(SSHMessage):
             r.write_binary(self.pub_key)
             if self.flag:
                 r.write_binary(self.signatrue)
+        elif self.method_name == "keyboard-interactive":
+            r.write_string(self.lang)
+            r.write_list(self.submethods)
         return r.getvalue()
 
 
@@ -68,6 +119,13 @@ class SSHMsgUserauthFailure(SSHMessage):
         cls.validate(buf)
         return cls(methods=buf.read_list(), partial=buf.read_bool())
 
+    def __bytes__(self):
+        buf = Buffer()
+        buf.write_byte(bytes((self.opcode,)))
+        buf.write_list(self.methods)
+        buf.write_bool(self.partial)
+        return buf.getvalue()
+
 
 @dataclass
 class SSHMsgUserauthSuccess(SSHMessage):
@@ -79,6 +137,9 @@ class SSHMsgUserauthSuccess(SSHMessage):
     def parse(cls, buf):
         cls.validate(buf)
         return cls()
+
+    def __bytes__(self):
+        return bytes((self.opcode,))
 
 
 @dataclass
@@ -96,21 +157,67 @@ class SSHMsgUserauthBanner(SSHMessage):
 
 class SSHMsgUserauthPkOk(SSHMessage):
     # SSH_MSG_USERAUTH_PK_OK
-    opcode = 60
 
     @classmethod
     def _parse(cls, data):
         return cls()
 
 
-class SSHMsgUserauthPasswdChangereq(SSHMessage):
-    # SSH_MSG_USERAUTH_PASSWD_CHANGEREQ
+@dataclass
+class SSHMsgUserauthInfoRequest(SSHMessage):
+    desc = "SSH_MSG_USERAUTH_INFO_REQUEST"
     opcode = 60
+    name: str
+    instruction: str
+    lang: str
+    num_prompts: int
+    prompts: list[tuple[str, bool]]
 
     @classmethod
-    def _parse(cls, data):
-        return cls()
+    def parse(cls, data: Buffer):
+        cls.validate(data)
+        name = data.read_string()
+        instruction = data.read_string()
+        lang = data.read_string()
+        num_prompts = data.read_int()
+        prompts = []
+        for _ in range(num_prompts):
+            prompt = data.read_string()
+            echo = data.read_bool()
+            prompts.append((prompt, echo))
+        return cls(
+            name=name,
+            instruction=instruction,
+            lang=lang,
+            num_prompts=num_prompts,
+            prompts=prompts,
+        )
 
+
+@dataclass
+class SSHMsgUserauthInfoResponse(SSHMessage):
+    desc = "SSH_MSG_USERAUTH_INFO_RESPONSE"
+    opcode = 61
+    num_responses: int
+    responses: list[str]
+
+    @classmethod
+    def parse(cls, data: Buffer):
+        cls.validate(data)
+        num_responses = data.read_int()
+        responses = []
+        for _ in range(num_responses):
+            response = data.read_string()
+            responses.append(response)
+        return cls(num_responses=num_responses, responses=responses)
+    
+    def __bytes__(self):
+        buf = Buffer()
+        buf.write_byte(int.to_bytes(self.opcode, 1,"big"))
+        buf.write_int(self.num_responses)
+        for response in self.responses:
+            buf.write_string(response)
+        return buf.getvalue()
 
 @dataclass
 class SSHMsgDisconnect(SSHMessage):
