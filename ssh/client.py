@@ -47,6 +47,7 @@ class SSHClient:
         self.session_id = None
         self.tasks: Set[curio.Task] = set()
         self.events: dict[int, curio.Event] = {}
+        self.wait_messages: dict[int, SSHMessage] = {}
         self.close_event = curio.Event()
         self.channel_events: dict[int, curio.Event] = {}
         self.channels: dict[int, Channel] = {}

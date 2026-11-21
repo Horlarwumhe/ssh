@@ -10,7 +10,7 @@ import random
 
 from ssh import algo
 from ssh import SSHClient
-from ssh.exc import AuthenticationError
+from ssh.exc import AuthenticationError,AuthError
 
 def main():
     parser = ArgumentParser(prog="pyssh")
