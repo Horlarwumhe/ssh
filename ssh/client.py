@@ -331,7 +331,7 @@ class SSHClient:
 
         svc = SSHMsgServiceRequest(service_name="ssh-userauth")
         await self.send_message(svc)
-        if not await self.wait_for_message(SSHMsgServiceAccept, timeout, silent=True):
+        if not await self.wait_for_message(SSHMsgServiceAccept, silent=True):
             raise TimeoutError("service request timeout")
 
         await self.send_message(SSHMsgUserauthRequest(
@@ -348,7 +348,6 @@ class SSHClient:
                  SSHMsgUserauthSuccess,
                  SSHMsgUserauthFailure,
                  SSHMsgUserauthBanner),
-                timeout,
                 silent=True,
             )
             if msg is None:
@@ -432,7 +431,7 @@ class SSHClient:
     def _log(self, level, message):
         self.logger.log(level, message)
 
-    async def wait_for_message(self, msg, timeout=120, silent=False):
+    async def wait_for_message(self, msg, timeout=10, silent=False):
         classes = msg if isinstance(msg, (tuple, list)) else (msg,)
         opcodes = tuple(c.opcode for c in classes)
 
@@ -545,6 +544,7 @@ class SSHClient:
         self.logger.info(msg)
         if isinstance(msg, SSHMsgUserauthFailure):
             self.authenticated = False
+            self.auth_methods = msg.methods
             self.logger.info("auth failure %s", msg)
         else:
             self.authenticated = True
